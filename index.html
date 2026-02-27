@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jali Pattern Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: #1a1a1a;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+    }
+
+    #controls {
+      width: 280px;
+      padding: 24px;
+      background: #242424;
+      border-right: 1px solid #333;
+      overflow-y: auto;
+      height: 100vh;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #fff;
+    }
+
+    .subtitle {
+      font-size: 12px;
+      color: #888;
+      margin-bottom: 24px;
+    }
+
+    .control-group {
+      margin-bottom: 20px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #888;
+      margin-bottom: 8px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 4px;
+      -webkit-appearance: none;
+      background: #444;
+      border-radius: 2px;
+      outline: none;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 16px;
+      height: 16px;
+      background: #fff;
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .value-display {
+      font-size: 12px;
+      color: #ccc;
+      margin-top: 4px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    select {
+      width: 100%;
+      padding: 8px 12px;
+      background: #333;
+      border: 1px solid #444;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    select:focus {
+      outline: none;
+      border-color: #666;
+    }
+
+    button {
+      width: 100%;
+      padding: 10px 16px;
+      background: #fff;
+      color: #000;
+      border: none;
+      border-radius: 4px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      margin-bottom: 8px;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: #e0e0e0;
+    }
+
+    button.secondary {
+      background: #333;
+      color: #fff;
+      border: 1px solid #444;
+    }
+
+    button.secondary:hover {
+      background: #444;
+    }
+
+    .divider {
+      height: 1px;
+      background: #333;
+      margin: 24px 0;
+    }
+
+    #canvas-container {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    canvas {
+      box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+    }
+
+    .color-row {
+      display: flex;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .color-swatch {
+      width: 32px;
+      height: 32px;
+      border-radius: 4px;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: border-color 0.15s;
+    }
+
+    .color-swatch:hover,
+    .color-swatch.active {
+      border-color: #fff;
+    }
+
+    .toggle-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .toggle-btn {
+      flex: 1;
+      padding: 8px 12px;
+      background: #333;
+      color: #888;
+      border: 1px solid #444;
+      font-size: 12px;
+      margin-bottom: 0;
+    }
+
+    .toggle-btn.active {
+      background: #fff;
+      color: #000;
+      border-color: #fff;
+    }
+
+    .toggle-btn:hover:not(.active) {
+      background: #444;
+      color: #ccc;
+    }
+
+    .shortcuts {
+      font-size: 10px;
+      color: #666;
+      margin-top: 16px;
+      line-height: 1.6;
+    }
+
+    .shortcuts kbd {
+      display: inline-block;
+      padding: 2px 6px;
+      background: #333;
+      border-radius: 3px;
+      font-family: inherit;
+      margin-right: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div id="controls">
+    <h1>Jali Generator</h1>
+    <p class="subtitle">Dynamic Islamic lattice patterns</p>
+
+    <div class="control-group">
+      <label>Preset</label>
+      <select id="preset">
+        <option value="">Custom</option>
+        <option value="classic-star">Classic Star</option>
+        <option value="sidi-saiyyed">Sidi Saiyyed (Mixed)</option>
+        <option value="gateway-jali">Gateway Jali (Carved)</option>
+        <option value="art-deco-mumbai">Art Deco Mumbai</option>
+        <option value="moroccan-zellige">Moroccan Zellige</option>
+        <option value="gateway-arch">Gateway Arch</option>
+        <option value="minimal">Minimal</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Pattern Type</label>
+      <select id="patternType">
+        <optgroup label="Islamic">
+          <option value="star8">8-Point Star</option>
+          <option value="star6">6-Point Star</option>
+          <option value="star6Hex">6-Point Star (Hex Grid)</option>
+          <option value="rosette">Rosette</option>
+          <option value="hexLattice">Hexagonal Lattice</option>
+          <option value="circles">Interlocking Circles</option>
+          <option value="knotwork">Knotwork</option>
+          <option value="octSquare">Octagon-Square</option>
+        </optgroup>
+        <optgroup label="Art Deco">
+          <option value="sunburst">Sunburst</option>
+          <option value="chevron">Chevron</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Contact Angle</label>
+      <input type="range" id="contactAngle" min="35" max="75" value="55">
+      <div class="value-display"><span id="contactAngleValue">55</span>°</div>
+    </div>
+
+    <div class="control-group">
+      <label>Grid Size</label>
+      <input type="range" id="gridSize" min="2" max="8" value="4">
+      <div class="value-display"><span id="gridSizeValue">4</span> × <span id="gridSizeValue2">4</span></div>
+    </div>
+
+    <div class="control-group">
+      <label>Scale</label>
+      <input type="range" id="scale" min="40" max="150" value="80">
+      <div class="value-display"><span id="scaleValue">80</span>px</div>
+    </div>
+
+    <div class="control-group">
+      <label>Stroke Weight</label>
+      <input type="range" id="strokeWeight" min="1" max="6" value="2" step="0.5">
+      <div class="value-display"><span id="strokeWeightValue">2</span>px</div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+      <label>Color Palette</label>
+      <div class="color-row">
+        <div class="color-swatch active" style="background: #f5f0e6" data-bg="#f5f0e6" data-fg="#2c2416" title="Sandstone"></div>
+        <div class="color-swatch" style="background: #3d3d3d" data-bg="#3d3d3d" data-fg="#c9b896" title="Basalt"></div>
+        <div class="color-swatch" style="background: #1a1a1a" data-bg="#1a1a1a" data-fg="#ffffff" title="Night"></div>
+        <div class="color-swatch" style="background: #0a3d62" data-bg="#0a3d62" data-fg="#f8c291" title="Mumbai Blue"></div>
+      </div>
+      <div class="color-row" style="margin-top: 8px;">
+        <div class="color-swatch" style="background: #d4a574" data-bg="#d4a574" data-fg="#2c1810" title="Terracotta"></div>
+        <div class="color-swatch" style="background: #f0ebe3" data-bg="#f0ebe3" data-fg="#1e3a5f" title="Marble"></div>
+        <div class="color-swatch" style="background: #b8860b" data-bg="#b8860b" data-fg="#1a1a1a" title="Gold"></div>
+        <div class="color-swatch" style="background: #ffffff" data-bg="#ffffff" data-fg="#000000" title="Print"></div>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Composition</label>
+      <select id="compositionMode">
+        <option value="single">Single Pattern</option>
+        <option value="mixed">Mixed (Jali Grid)</option>
+        <option value="organic">Organic (Generative)</option>
+        <option value="quilt">Quilt (Varied Stars)</option>
+        <option value="gradient">Gradient Deformation</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Render Mode</label>
+      <div class="toggle-row">
+        <button id="toggleFill" class="toggle-btn">Fill</button>
+        <button id="toggleStroke" class="toggle-btn active">Stroke</button>
+      </div>
+    </div>
+
+    <div class="control-group">
+      <label>Line Caps</label>
+      <select id="lineCap">
+        <option value="round">Round</option>
+        <option value="square">Square</option>
+        <option value="project">Project</option>
+      </select>
+    </div>
+
+    <div class="control-group">
+      <label>Frame</label>
+      <select id="frameType">
+        <option value="none">None</option>
+        <option value="square">Square</option>
+        <option value="arch">Pointed Arch</option>
+        <option value="roundArch">Round Arch</option>
+        <option value="circle">Circle</option>
+      </select>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+      <label>Visual Effects</label>
+      <div class="toggle-row">
+        <button id="toggleDepth" class="toggle-btn">Depth</button>
+        <button id="toggleLight" class="toggle-btn">Light</button>
+      </div>
+    </div>
+
+    <div class="divider"></div>
+
+    <button id="randomize">Randomize</button>
+    <button id="exportSVG" class="secondary">Export SVG</button>
+    <button id="exportPNG" class="secondary">Export PNG</button>
+
+    <div class="shortcuts">
+      <kbd>R</kbd> Randomize<br>
+      <kbd>S</kbd> Export SVG<br>
+      <kbd>P</kbd> Export PNG<br>
+      <kbd>F</kbd> Toggle Fill<br>
+      <kbd>1-9</kbd> Pattern type<br>
+      <kbd>↑↓</kbd> Contact angle
+    </div>
+  </div>
+
+  <div id="canvas-container">
+  </div>
+
+  <script src="sketch.js"></script>
+</body>
+</html>
