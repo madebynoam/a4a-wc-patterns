@@ -3,11 +3,10 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jali Pattern Machine</title>
+  <title>Jali Lattice</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-
     body {
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
       background: #1a1a1a;
@@ -15,7 +14,6 @@
       min-height: 100vh;
       display: flex;
     }
-
     #controls {
       width: 280px;
       padding: 24px;
@@ -24,12 +22,9 @@
       overflow-y: auto;
       height: 100vh;
     }
-
     h1 { font-size: 18px; font-weight: 600; margin-bottom: 8px; color: #fff; }
     .subtitle { font-size: 12px; color: #888; margin-bottom: 24px; }
-
     .control-group { margin-bottom: 20px; }
-
     label {
       display: block;
       font-size: 11px;
@@ -38,7 +33,6 @@
       color: #888;
       margin-bottom: 8px;
     }
-
     input[type="range"] {
       width: 100%;
       height: 4px;
@@ -46,7 +40,6 @@
       background: #444;
       border-radius: 2px;
     }
-
     input[type="range"]::-webkit-slider-thumb {
       -webkit-appearance: none;
       width: 16px;
@@ -55,8 +48,7 @@
       border-radius: 50%;
       cursor: pointer;
     }
-
-    input[type="number"], select {
+    input[type="number"] {
       width: 100%;
       padding: 8px 12px;
       background: #333;
@@ -65,15 +57,7 @@
       border-radius: 4px;
       font-size: 14px;
     }
-
-    select { cursor: pointer; }
-
-    .value-display {
-      font-size: 12px;
-      color: #ccc;
-      margin-top: 4px;
-    }
-
+    .value-display { font-size: 12px; color: #ccc; margin-top: 4px; }
     button {
       width: 100%;
       padding: 12px 16px;
@@ -86,13 +70,10 @@
       cursor: pointer;
       margin-bottom: 8px;
     }
-
     button:hover { background: #e0e0e0; }
     button.secondary { background: #333; color: #fff; border: 1px solid #444; }
     button.secondary:hover { background: #444; }
-
     .divider { height: 1px; background: #333; margin: 24px 0; }
-
     #canvas-container {
       flex: 1;
       display: flex;
@@ -100,11 +81,8 @@
       justify-content: center;
       padding: 40px;
     }
-
     canvas { box-shadow: 0 4px 24px rgba(0,0,0,0.4); }
-
     .color-row { display: flex; gap: 8px; margin-top: 8px; }
-
     .color-swatch {
       width: 32px;
       height: 32px;
@@ -112,12 +90,9 @@
       cursor: pointer;
       border: 2px solid transparent;
     }
-
     .color-swatch:hover, .color-swatch.active { border-color: #fff; }
-
     .shortcuts { font-size: 10px; color: #666; margin-top: 16px; line-height: 1.6; }
     .shortcuts kbd { padding: 2px 6px; background: #333; border-radius: 3px; margin-right: 4px; }
-
     .seed-row { display: flex; gap: 8px; }
     .seed-row input { flex: 1; }
     .seed-row button { width: auto; padding: 8px 16px; margin: 0; }
@@ -125,8 +100,8 @@
 </head>
 <body>
   <div id="controls">
-    <h1>Jali Machine</h1>
-    <p class="subtitle">Islamic geometric patterns</p>
+    <h1>Jali Lattice</h1>
+    <p class="subtitle">Grid + diagonals = pattern</p>
 
     <div class="control-group">
       <label>Seed</label>
@@ -139,30 +114,15 @@
     <div class="divider"></div>
 
     <div class="control-group">
-      <label>Star Type</label>
-      <select id="starType">
-        <option value="6">6-Point Star (Hexagonal)</option>
-        <option value="8" selected>8-Point Star (Square)</option>
-        <option value="12">12-Point Star (Complex)</option>
-      </select>
+      <label>Grid Size</label>
+      <input type="range" id="gridSize" min="3" max="12" value="6">
+      <div class="value-display"><span id="gridValue">6</span></div>
     </div>
 
     <div class="control-group">
-      <label>Contact Angle</label>
-      <input type="range" id="contactAngle" min="35" max="75" value="55">
-      <div class="value-display"><span id="angleValue">55</span>° (controls star sharpness)</div>
-    </div>
-
-    <div class="control-group">
-      <label>Grid Density</label>
-      <input type="range" id="gridSize" min="2" max="8" value="4">
-      <div class="value-display"><span id="gridValue">4</span> repeats</div>
-    </div>
-
-    <div class="control-group">
-      <label>Line Density</label>
-      <input type="range" id="connectionProb" min="0.5" max="1" step="0.05" value="1">
-      <div class="value-display"><span id="connValue">100%</span></div>
+      <label>Diagonal Density</label>
+      <input type="range" id="diagonalProb" min="0" max="1" step="0.05" value="0.5">
+      <div class="value-display"><span id="diagValue">50%</span></div>
     </div>
 
     <div class="control-group">
