@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jali Pattern Generator</title>
+  <title>Jali Pattern Machine</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <style>
     * {
@@ -73,6 +73,22 @@
       cursor: pointer;
     }
 
+    input[type="number"] {
+      width: 100%;
+      padding: 8px 12px;
+      background: #333;
+      border: 1px solid #444;
+      color: #fff;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: monospace;
+    }
+
+    input[type="number"]:focus {
+      outline: none;
+      border-color: #666;
+    }
+
     .value-display {
       font-size: 12px;
       color: #ccc;
@@ -80,31 +96,15 @@
       font-variant-numeric: tabular-nums;
     }
 
-    select {
-      width: 100%;
-      padding: 8px 12px;
-      background: #333;
-      border: 1px solid #444;
-      color: #fff;
-      border-radius: 4px;
-      font-size: 13px;
-      cursor: pointer;
-    }
-
-    select:focus {
-      outline: none;
-      border-color: #666;
-    }
-
     button {
       width: 100%;
-      padding: 10px 16px;
+      padding: 12px 16px;
       background: #fff;
       color: #000;
       border: none;
       border-radius: 4px;
-      font-size: 13px;
-      font-weight: 500;
+      font-size: 14px;
+      font-weight: 600;
       cursor: pointer;
       margin-bottom: 8px;
       transition: background 0.15s;
@@ -118,6 +118,7 @@
       background: #333;
       color: #fff;
       border: 1px solid #444;
+      font-weight: 500;
     }
 
     button.secondary:hover {
@@ -162,32 +163,6 @@
       border-color: #fff;
     }
 
-    .toggle-row {
-      display: flex;
-      gap: 8px;
-    }
-
-    .toggle-btn {
-      flex: 1;
-      padding: 8px 12px;
-      background: #333;
-      color: #888;
-      border: 1px solid #444;
-      font-size: 12px;
-      margin-bottom: 0;
-    }
-
-    .toggle-btn.active {
-      background: #fff;
-      color: #000;
-      border-color: #fff;
-    }
-
-    .toggle-btn:hover:not(.active) {
-      background: #444;
-      color: #ccc;
-    }
-
     .shortcuts {
       font-size: 10px;
       color: #666;
@@ -203,151 +178,85 @@
       font-family: inherit;
       margin-right: 4px;
     }
+
+    .seed-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .seed-row input {
+      flex: 1;
+    }
+
+    .seed-row button {
+      width: auto;
+      padding: 8px 12px;
+      margin: 0;
+    }
   </style>
 </head>
 <body>
   <div id="controls">
-    <h1>Jali Generator</h1>
-    <p class="subtitle">Dynamic Islamic lattice patterns</p>
+    <h1>Jali Machine</h1>
+    <p class="subtitle">Cellular pattern generator</p>
 
     <div class="control-group">
-      <label>Preset</label>
-      <select id="preset">
-        <option value="">Custom</option>
-        <option value="classic-star">Classic Star</option>
-        <option value="sidi-saiyyed">Sidi Saiyyed (Mixed)</option>
-        <option value="gateway-jali">Gateway Jali (Carved)</option>
-        <option value="art-deco-mumbai">Art Deco Mumbai</option>
-        <option value="moroccan-zellige">Moroccan Zellige</option>
-        <option value="gateway-arch">Gateway Arch</option>
-        <option value="minimal">Minimal</option>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>Pattern Type</label>
-      <select id="patternType">
-        <optgroup label="Islamic">
-          <option value="star8">8-Point Star</option>
-          <option value="star6">6-Point Star</option>
-          <option value="star6Hex">6-Point Star (Hex Grid)</option>
-          <option value="rosette">Rosette</option>
-          <option value="hexLattice">Hexagonal Lattice</option>
-          <option value="circles">Interlocking Circles</option>
-          <option value="knotwork">Knotwork</option>
-          <option value="octSquare">Octagon-Square</option>
-        </optgroup>
-        <optgroup label="Art Deco">
-          <option value="sunburst">Sunburst</option>
-          <option value="chevron">Chevron</option>
-        </optgroup>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>Contact Angle</label>
-      <input type="range" id="contactAngle" min="35" max="75" value="55">
-      <div class="value-display"><span id="contactAngleValue">55</span>°</div>
-    </div>
-
-    <div class="control-group">
-      <label>Grid Size</label>
-      <input type="range" id="gridSize" min="2" max="8" value="4">
-      <div class="value-display"><span id="gridSizeValue">4</span> × <span id="gridSizeValue2">4</span></div>
-    </div>
-
-    <div class="control-group">
-      <label>Scale</label>
-      <input type="range" id="scale" min="40" max="150" value="80">
-      <div class="value-display"><span id="scaleValue">80</span>px</div>
-    </div>
-
-    <div class="control-group">
-      <label>Stroke Weight</label>
-      <input type="range" id="strokeWeight" min="1" max="6" value="2" step="0.5">
-      <div class="value-display"><span id="strokeWeightValue">2</span>px</div>
+      <label>Seed</label>
+      <div class="seed-row">
+        <input type="number" id="seed" value="42">
+        <button id="generate" title="Generate new pattern">New</button>
+      </div>
     </div>
 
     <div class="divider"></div>
 
     <div class="control-group">
-      <label>Color Palette</label>
+      <label>Density</label>
+      <input type="range" id="density" min="3" max="8" value="5">
+      <div class="value-display"><span id="densityValue">5</span> cells</div>
+    </div>
+
+    <div class="control-group">
+      <label>Wall Thickness</label>
+      <input type="range" id="wallThickness" min="0.08" max="0.35" step="0.01" value="0.15">
+      <div class="value-display"><span id="wallValue">15%</span></div>
+    </div>
+
+    <div class="control-group">
+      <label>Roundness</label>
+      <input type="range" id="roundness" min="0" max="1" step="0.05" value="0.5">
+      <div class="value-display"><span id="roundValue">50%</span></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+      <label>Human Hand (Imperfection)</label>
+      <input type="range" id="imperfection" min="0" max="1" step="0.05" value="0">
+      <div class="value-display"><span id="imperfectValue">0%</span> <span style="color:#666">(0% = pin, 50% = tote)</span></div>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+      <label>Colors</label>
       <div class="color-row">
-        <div class="color-swatch active" style="background: #f5f0e6" data-bg="#f5f0e6" data-fg="#2c2416" title="Sandstone"></div>
-        <div class="color-swatch" style="background: #3d3d3d" data-bg="#3d3d3d" data-fg="#c9b896" title="Basalt"></div>
-        <div class="color-swatch" style="background: #1a1a1a" data-bg="#1a1a1a" data-fg="#ffffff" title="Night"></div>
-        <div class="color-swatch" style="background: #0a3d62" data-bg="#0a3d62" data-fg="#f8c291" title="Mumbai Blue"></div>
-      </div>
-      <div class="color-row" style="margin-top: 8px;">
-        <div class="color-swatch" style="background: #d4a574" data-bg="#d4a574" data-fg="#2c1810" title="Terracotta"></div>
-        <div class="color-swatch" style="background: #f0ebe3" data-bg="#f0ebe3" data-fg="#1e3a5f" title="Marble"></div>
-        <div class="color-swatch" style="background: #b8860b" data-bg="#b8860b" data-fg="#1a1a1a" title="Gold"></div>
-        <div class="color-swatch" style="background: #ffffff" data-bg="#ffffff" data-fg="#000000" title="Print"></div>
-      </div>
-    </div>
-
-    <div class="control-group">
-      <label>Composition</label>
-      <select id="compositionMode">
-        <option value="single">Single Pattern</option>
-        <option value="mixed">Mixed (Jali Grid)</option>
-        <option value="organic">Organic (Generative)</option>
-        <option value="quilt">Quilt (Varied Stars)</option>
-        <option value="gradient">Gradient Deformation</option>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>Render Mode</label>
-      <div class="toggle-row">
-        <button id="toggleFill" class="toggle-btn">Fill</button>
-        <button id="toggleStroke" class="toggle-btn active">Stroke</button>
-      </div>
-    </div>
-
-    <div class="control-group">
-      <label>Line Caps</label>
-      <select id="lineCap">
-        <option value="round">Round</option>
-        <option value="square">Square</option>
-        <option value="project">Project</option>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>Frame</label>
-      <select id="frameType">
-        <option value="none">None</option>
-        <option value="square">Square</option>
-        <option value="arch">Pointed Arch</option>
-        <option value="roundArch">Round Arch</option>
-        <option value="circle">Circle</option>
-      </select>
-    </div>
-
-    <div class="divider"></div>
-
-    <div class="control-group">
-      <label>Visual Effects</label>
-      <div class="toggle-row">
-        <button id="toggleDepth" class="toggle-btn">Depth</button>
-        <button id="toggleLight" class="toggle-btn">Light</button>
+        <div class="color-swatch" style="background: #1a1a1a" data-bg="#1a1a1a" data-fg="#f5f0e6" title="Dark/Cream"></div>
+        <div class="color-swatch active" style="background: #f5f0e6" data-bg="#f5f0e6" data-fg="#1a1a1a" title="Cream/Dark"></div>
+        <div class="color-swatch" style="background: #0a3d62" data-bg="#0a3d62" data-fg="#f8c291" title="Blue/Gold"></div>
+        <div class="color-swatch" style="background: #ffffff" data-bg="#ffffff" data-fg="#000000" title="White/Black"></div>
       </div>
     </div>
 
     <div class="divider"></div>
 
-    <button id="randomize">Randomize</button>
-    <button id="exportSVG" class="secondary">Export SVG</button>
+    <button id="exportSVG">Export SVG</button>
     <button id="exportPNG" class="secondary">Export PNG</button>
 
     <div class="shortcuts">
-      <kbd>R</kbd> Randomize<br>
+      <kbd>Space</kbd> or <kbd>G</kbd> Generate<br>
       <kbd>S</kbd> Export SVG<br>
-      <kbd>P</kbd> Export PNG<br>
-      <kbd>F</kbd> Toggle Fill<br>
-      <kbd>1-9</kbd> Pattern type<br>
-      <kbd>↑↓</kbd> Contact angle
+      <kbd>P</kbd> Export PNG
     </div>
   </div>
 

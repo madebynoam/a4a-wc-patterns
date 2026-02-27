@@ -1,19 +1,12 @@
 {
-  "name": "jali-generator",
-  "version": "1.0.0",
-  "description": "Dynamic Islamic lattice pattern generator using Hankin's Polygons-in-Contact method",
+  "name": "jali-machine",
+  "version": "2.0.0",
+  "description": "Cellular jali pattern generator - generative design for pins and prints",
   "main": "sketch.js",
   "scripts": {
-    "test": "npx playwright test",
-    "test:update": "npx playwright test --update-snapshots",
-    "test:ui": "npx playwright test --ui",
-    "test:headed": "npx playwright test --headed",
     "serve": "python3 -m http.server 8000"
   },
-  "keywords": ["jali", "islamic-patterns", "generative-art", "p5js"],
+  "keywords": ["jali", "generative-art", "islamic-patterns", "p5js"],
   "author": "",
-  "license": "ISC",
-  "devDependencies": {
-    "@playwright/test": "^1.49.0"
-  }
+  "license": "ISC"
 }
