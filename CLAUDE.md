@@ -1,86 +1,79 @@
-# Cellular Jali Pattern Machine
+# Jali Line Grid Machine
 
 ## What This Is
 
-A generative machine that creates jali-style patterns. Each seed produces a unique, valid pattern suitable for enamel pins (clean) or tote bags (with imperfection).
+A generative machine that creates jali-style LINE GRID patterns. Each seed produces a unique lattice of intersecting lines.
 
 ## Core Principle
 
-**Negative space is the design.** We don't draw lines - we carve holes from solid. The voids let light through. The stone remains.
+**Lines form the lattice.** The stone/metal is the LINES. The voids are the negative space between them. This is stroke-based, not fill-based.
 
-## Visual Language
+## Structure
 
-### Cellular, Not Geometric
-- Inspired by carved stone jali screens
-- Organic but structured - like cells, bones, or maze walls
-- Thick walls with soft/rounded corners
-- Loose grid - structured but imperfect
+### Grid Points
+- Regular grid of points across canvas
+- Points can drift slightly with imperfection enabled
 
-### Shape Vocabulary
-- **Circle** - simple round void
-- **Pill** - rounded rectangle / capsule
-- **Cross** - plus shape with rounded ends
-- **Trefoil** - three-lobed clover shape
-- **Quatrefoil** - four-lobed shape
+### Connections
+- Horizontal lines between adjacent points
+- Vertical lines between adjacent points
+- Diagonal lines (optional) - both directions
+- Not all connections are drawn - controlled by probability
 
-### Placement Rules
-- Base grid provides structure
-- Each cell drifts from grid center (noise-driven)
-- Shapes can rotate
-- Adjacent shapes can merge when close
-- Some cells can be empty (variation)
+### Decorations
+- Star nodes at some intersections
+- Radiating lines from center point
+- Variable ray count (4-8)
 
-## The Machine
+## Parameters
 
-### Input
-- **Seed** - determines all random choices
-- **Density** - how many voids (sparse to dense)
-- **Wall thickness** - how chunky the stone
-- **Roundness** - corner radius
-- **Imperfection** - human hand amount (0-100%)
-
-### Output
+### Seed
+- Determines all random choices
 - Same seed = same pattern (always)
-- Different seeds = different valid patterns
-- Clean SVG for production
 
-## Human Hand Layer (Optional)
+### Grid Size
+- Number of divisions (3-12)
+- More divisions = denser pattern
 
-When enabled, adds subtle craftsman imperfection:
+### Connection Density
+- Probability of drawing each possible line (0.3-1.0)
+- Lower = more sparse/broken
+- Higher = more complete grid
 
-- **Endpoint drift** - shapes don't align perfectly
-- **Size wobble** - slight variation in shape sizes
-- **Corner variation** - roundness varies slightly
-- **Asymmetry** - shapes slightly irregular
+### Diagonals
+- Toggle on/off
+- Adds complexity and Islamic geometry feel
 
-This is OFF by default (pin-ready). Turn ON for screen print / tote bag.
+### Star Decorations
+- Probability of star at each node (0-60%)
+- Adds focal points and detail
 
-## Output Formats
+### Line Weight
+- Stroke thickness (1-8px)
+- Thicker = bolder, pin-ready
+- Thinner = delicate, detailed
 
-### Pin-Ready (Imperfection: 0%)
-- Perfect geometry
-- Uniform line weights
-- Clean intersections
-- Works at small scale
+### Imperfection
+- Human hand simulation (0-100%)
+- 0% = perfect geometry (pin-ready)
+- 50%+ = hand-drawn feel (tote-ready)
+- Affects: point positions, line endpoints
 
-### Tote-Ready (Imperfection: 20-50%)
-- Subtle human touch
-- Slight variations throughout
-- Same pattern, organic feel
+## Output
 
-## Technical Constraints
+### SVG Export
+- Pure vector lines
+- Clean for production (laser cut, enamel pin, screen print)
 
-- p5.js for rendering
-- SVG export must be clean vectors
-- No gradients, no textures
-- Single color (foreground/background)
-- Boolean operations: solid minus voids
+### PNG Export
+- Raster image
+- For preview/sharing
 
 ## What This Is NOT
 
-- Not flow fields or organic generative art
-- Not perfect Islamic star patterns
-- Not random noise
-- Not hand-drawn sketchy style
+- Not filled shapes
+- Not blobs or cells
+- Not organic/flowing
+- Not complex Islamic stars (yet)
 
-It's a **machine that makes cellular stone screens** with controlled variation.
+It's a **line grid machine** - the foundation of jali patterns.

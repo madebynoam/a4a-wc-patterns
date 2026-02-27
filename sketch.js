@@ -1,18 +1,20 @@
-// Cellular Jali Pattern Machine
-// Negative space is the design - we carve holes from solid
+// Jali Line Grid Machine
+// Lines form the lattice, voids are negative space
 
 let params = {
   seed: 42,
-  density: 5,          // Grid size (3-8)
-  wallThickness: 0.15, // 0.1 = thin walls, 0.3 = chunky
-  roundness: 0.5,      // Corner radius factor
-  imperfection: 0,     // 0 = perfect (pin), 0.5 = human (tote)
+  gridSize: 6,           // Number of grid divisions
+  connectionProb: 0.7,   // Probability of drawing a connection
+  diagonals: true,       // Include diagonal lines
+  starNodes: 0.3,        // Probability of star decoration at nodes
+  lineWeight: 3,
+  imperfection: 0,       // Human hand amount
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
 
 let canvas;
-let hand = null; // Human hand characteristics
+let hand = null;
 
 function setup() {
   const container = document.getElementById('canvas-container');
@@ -26,43 +28,164 @@ function setup() {
 }
 
 function generate() {
-  // Create hand signature for this seed
   hand = createHand(params.seed);
   redraw();
 }
 
 function draw() {
-  // Seed everything
   randomSeed(params.seed);
   noiseSeed(params.seed);
 
-  // Background (the "solid stone")
-  background(params.fgColor);
+  background(params.bgColor);
 
-  // Generate and draw voids (the carved holes)
-  const voids = generateVoids();
-  drawVoids(voids);
+  // Setup stroke
+  stroke(params.fgColor);
+  strokeWeight(params.lineWeight);
+  strokeCap(ROUND);
+  strokeJoin(ROUND);
+  noFill();
+
+  const margin = 40;
+  const gridSize = params.gridSize;
+  const cellW = (width - margin * 2) / gridSize;
+  const cellH = (height - margin * 2) / gridSize;
+
+  // Generate grid points
+  const points = [];
+  for (let i = 0; i <= gridSize; i++) {
+    points[i] = [];
+    for (let j = 0; j <= gridSize; j++) {
+      let x = margin + i * cellW;
+      let y = margin + j * cellH;
+
+      // Apply imperfection
+      if (params.imperfection > 0) {
+        const drift = params.imperfection * cellW * 0.15;
+        x += applyHand(0, noise(i * 0.5, j * 0.5) * drift, 'position');
+        y += applyHand(0, noise(i * 0.5 + 100, j * 0.5) * drift, 'position');
+      }
+
+      points[i][j] = { x, y };
+    }
+  }
+
+  // Draw horizontal lines
+  for (let j = 0; j <= gridSize; j++) {
+    for (let i = 0; i < gridSize; i++) {
+      if (shouldConnect(i, j, 'h')) {
+        drawJaliLine(points[i][j], points[i + 1][j]);
+      }
+    }
+  }
+
+  // Draw vertical lines
+  for (let i = 0; i <= gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      if (shouldConnect(i, j, 'v')) {
+        drawJaliLine(points[i][j], points[i][j + 1]);
+      }
+    }
+  }
+
+  // Draw diagonal lines (if enabled)
+  if (params.diagonals) {
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        // Diagonal: top-left to bottom-right
+        if (shouldConnect(i, j, 'd1')) {
+          drawJaliLine(points[i][j], points[i + 1][j + 1]);
+        }
+        // Diagonal: top-right to bottom-left
+        if (shouldConnect(i, j, 'd2')) {
+          drawJaliLine(points[i + 1][j], points[i][j + 1]);
+        }
+      }
+    }
+  }
+
+  // Draw star decorations at some nodes
+  for (let i = 0; i <= gridSize; i++) {
+    for (let j = 0; j <= gridSize; j++) {
+      if (shouldDrawStar(i, j)) {
+        drawStarNode(points[i][j], cellW * 0.25);
+      }
+    }
+  }
 
   // Draw border
-  stroke(params.bgColor);
-  strokeWeight(4);
-  noFill();
-  rect(2, 2, width - 4, height - 4);
+  strokeWeight(params.lineWeight * 1.5);
+  rect(margin * 0.5, margin * 0.5, width - margin, height - margin);
 }
 
 // ============================================
-// HUMAN HAND - Consistent imperfection per seed
+// CONNECTION LOGIC
+// ============================================
+
+function shouldConnect(i, j, type) {
+  // Use noise for consistent but varied decisions
+  const n = noise(i * 0.3 + j * 0.7, j * 0.3, type.charCodeAt(0) * 0.1);
+  return n < params.connectionProb;
+}
+
+function shouldDrawStar(i, j) {
+  // Stars at nodes based on noise
+  const n = noise(i * 0.4, j * 0.4, 500);
+  return n < params.starNodes;
+}
+
+// ============================================
+// LINE DRAWING
+// ============================================
+
+function drawJaliLine(p1, p2) {
+  let x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
+
+  // Apply imperfection to endpoints
+  if (params.imperfection > 0) {
+    const wobble = params.imperfection * 2;
+    x1 += random(-wobble, wobble);
+    y1 += random(-wobble, wobble);
+    x2 += random(-wobble, wobble);
+    y2 += random(-wobble, wobble);
+  }
+
+  line(x1, y1, x2, y2);
+}
+
+function drawStarNode(p, size) {
+  const rays = floor(random(4, 9)); // 4 to 8 rays
+  const innerR = size * 0.3;
+  const outerR = size;
+
+  push();
+  translate(p.x, p.y);
+
+  if (params.imperfection > 0) {
+    rotate(random(-0.1, 0.1) * params.imperfection);
+  }
+
+  for (let i = 0; i < rays; i++) {
+    const angle = (TWO_PI / rays) * i - HALF_PI;
+    const x1 = cos(angle) * innerR;
+    const y1 = sin(angle) * innerR;
+    const x2 = cos(angle) * outerR;
+    const y2 = sin(angle) * outerR;
+    line(x1, y1, x2, y2);
+  }
+
+  pop();
+}
+
+// ============================================
+// HUMAN HAND
 // ============================================
 
 function createHand(seed) {
-  randomSeed(seed * 7); // Different sequence than main
-
+  randomSeed(seed * 7);
   return {
-    driftAngle: random(TWO_PI),           // Direction this hand tends to drift
-    driftAmount: random(0.5, 1.5),        // How much drift
-    sizeVariation: random(0.8, 1.2),      // Size tendency
-    roundnessOffset: random(-0.1, 0.1),   // Corner radius tendency
-    rotationBias: random(-0.1, 0.1)       // Slight rotation tendency
+    driftAngle: random(TWO_PI),
+    driftAmount: random(0.5, 1.5),
+    weightVar: random(0.9, 1.1)
   };
 }
 
@@ -72,210 +195,12 @@ function applyHand(value, variation, type) {
   const amount = params.imperfection;
   const h = hand;
 
-  switch(type) {
-    case 'position':
-      const drift = variation * h.driftAmount * amount * 10;
-      return value + cos(h.driftAngle) * drift;
-    case 'size':
-      return value * lerp(1, h.sizeVariation, amount) * (1 + random(-0.1, 0.1) * amount);
-    case 'roundness':
-      return value + h.roundnessOffset * amount;
-    case 'rotation':
-      return value + h.rotationBias * amount + random(-0.05, 0.05) * amount;
-    default:
-      return value;
-  }
-}
-
-// ============================================
-// VOID GENERATION
-// ============================================
-
-function generateVoids() {
-  const voids = [];
-  const grid = params.density;
-  const cellSize = width / grid;
-  const margin = cellSize * 0.5;
-
-  // Shape vocabulary with weights
-  const shapes = [
-    { type: 'circle', weight: 3 },
-    { type: 'pill', weight: 2 },
-    { type: 'cross', weight: 2 },
-    { type: 'quatrefoil', weight: 1 },
-    { type: 'trefoil', weight: 1 }
-  ];
-  const totalWeight = shapes.reduce((sum, s) => sum + s.weight, 0);
-
-  for (let i = 0; i < grid; i++) {
-    for (let j = 0; j < grid; j++) {
-      // Base position (grid center)
-      let cx = margin + i * cellSize + cellSize * 0.5;
-      let cy = margin + j * cellSize + cellSize * 0.5;
-
-      // Noise-driven drift from grid
-      const noiseVal = noise(i * 0.5, j * 0.5);
-      const driftX = map(noise(i * 0.3, j * 0.3, 0), 0, 1, -1, 1) * cellSize * 0.2;
-      const driftY = map(noise(i * 0.3, j * 0.3, 100), 0, 1, -1, 1) * cellSize * 0.2;
-
-      cx = applyHand(cx + driftX, noiseVal, 'position');
-      cy = applyHand(cy + driftY, noiseVal, 'position');
-
-      // Skip some cells for variation (based on noise)
-      if (noise(i * 0.7, j * 0.7, 50) < 0.15) continue;
-
-      // Select shape based on weighted probability
-      const shapeType = selectWeightedShape(shapes, totalWeight, i, j);
-
-      // Size based on noise and wall thickness
-      const baseSize = cellSize * (1 - params.wallThickness * 2);
-      const sizeNoise = map(noise(i * 0.4, j * 0.4, 200), 0, 1, 0.7, 1.1);
-      const size = applyHand(baseSize * sizeNoise, noiseVal, 'size');
-
-      // Rotation
-      const rotation = applyHand(
-        noise(i * 0.5, j * 0.5, 300) * HALF_PI,
-        noiseVal,
-        'rotation'
-      );
-
-      voids.push({
-        type: shapeType,
-        x: cx,
-        y: cy,
-        size: size,
-        rotation: rotation,
-        roundness: applyHand(params.roundness, noiseVal, 'roundness')
-      });
-    }
+  if (type === 'position') {
+    const drift = variation * h.driftAmount * amount;
+    return value + cos(h.driftAngle + variation) * drift;
   }
 
-  return voids;
-}
-
-function selectWeightedShape(shapes, totalWeight, i, j) {
-  const r = noise(i * 0.6, j * 0.6, 999) * totalWeight;
-  let cumulative = 0;
-
-  for (const shape of shapes) {
-    cumulative += shape.weight;
-    if (r < cumulative) return shape.type;
-  }
-
-  return shapes[0].type;
-}
-
-// ============================================
-// VOID DRAWING (Carving holes)
-// ============================================
-
-function drawVoids(voids) {
-  fill(params.bgColor);
-  noStroke();
-
-  for (const v of voids) {
-    push();
-    translate(v.x, v.y);
-    rotate(v.rotation);
-
-    switch(v.type) {
-      case 'circle':
-        drawCircleVoid(v.size, v.roundness);
-        break;
-      case 'pill':
-        drawPillVoid(v.size, v.roundness);
-        break;
-      case 'cross':
-        drawCrossVoid(v.size, v.roundness);
-        break;
-      case 'quatrefoil':
-        drawQuatrefoilVoid(v.size, v.roundness);
-        break;
-      case 'trefoil':
-        drawTrefoilVoid(v.size, v.roundness);
-        break;
-    }
-
-    pop();
-  }
-}
-
-function drawCircleVoid(size, roundness) {
-  ellipse(0, 0, size, size);
-}
-
-function drawPillVoid(size, roundness) {
-  const w = size;
-  const h = size * 0.5;
-  const r = h * 0.5;
-
-  rectMode(CENTER);
-
-  // Draw as rounded rect
-  beginShape();
-  // Top left corner
-  for (let a = PI; a <= PI + HALF_PI; a += 0.1) {
-    vertex(-w/2 + r + cos(a) * r, -h/2 + r + sin(a) * r);
-  }
-  // Top right corner
-  for (let a = -HALF_PI; a <= 0; a += 0.1) {
-    vertex(w/2 - r + cos(a) * r, -h/2 + r + sin(a) * r);
-  }
-  // Bottom right corner
-  for (let a = 0; a <= HALF_PI; a += 0.1) {
-    vertex(w/2 - r + cos(a) * r, h/2 - r + sin(a) * r);
-  }
-  // Bottom left corner
-  for (let a = HALF_PI; a <= PI; a += 0.1) {
-    vertex(-w/2 + r + cos(a) * r, h/2 - r + sin(a) * r);
-  }
-  endShape(CLOSE);
-}
-
-function drawCrossVoid(size, roundness) {
-  const armWidth = size * 0.35;
-  const armLength = size * 0.5;
-  const r = armWidth * roundness * 0.5;
-
-  // Draw cross as 4 overlapping circles + center
-  ellipse(0, 0, armWidth, armWidth); // Center
-  ellipse(0, -armLength * 0.6, armWidth * 0.9, armWidth * 0.9); // Top
-  ellipse(0, armLength * 0.6, armWidth * 0.9, armWidth * 0.9);  // Bottom
-  ellipse(-armLength * 0.6, 0, armWidth * 0.9, armWidth * 0.9); // Left
-  ellipse(armLength * 0.6, 0, armWidth * 0.9, armWidth * 0.9);  // Right
-
-  // Fill gaps
-  rectMode(CENTER);
-  rect(0, 0, armWidth * 0.7, armLength * 1.2);
-  rect(0, 0, armLength * 1.2, armWidth * 0.7);
-}
-
-function drawQuatrefoilVoid(size, roundness) {
-  const lobeSize = size * 0.45;
-  const offset = size * 0.25;
-
-  // Four lobes
-  ellipse(offset, 0, lobeSize, lobeSize);
-  ellipse(-offset, 0, lobeSize, lobeSize);
-  ellipse(0, offset, lobeSize, lobeSize);
-  ellipse(0, -offset, lobeSize, lobeSize);
-
-  // Center fill
-  ellipse(0, 0, lobeSize * 0.8, lobeSize * 0.8);
-}
-
-function drawTrefoilVoid(size, roundness) {
-  const lobeSize = size * 0.5;
-  const offset = size * 0.28;
-
-  // Three lobes at 120 degrees
-  for (let i = 0; i < 3; i++) {
-    const angle = (TWO_PI / 3) * i - HALF_PI;
-    ellipse(cos(angle) * offset, sin(angle) * offset, lobeSize, lobeSize);
-  }
-
-  // Center fill
-  ellipse(0, 0, lobeSize * 0.6, lobeSize * 0.6);
+  return value;
 }
 
 // ============================================
@@ -303,35 +228,55 @@ function setupControls() {
     });
   }
 
-  // Density
-  const densitySlider = document.getElementById('density');
-  const densityValue = document.getElementById('densityValue');
-  if (densitySlider) {
-    densitySlider.addEventListener('input', (e) => {
-      params.density = parseInt(e.target.value);
-      if (densityValue) densityValue.textContent = e.target.value;
+  // Grid size
+  const gridSlider = document.getElementById('gridSize');
+  const gridValue = document.getElementById('gridValue');
+  if (gridSlider) {
+    gridSlider.addEventListener('input', (e) => {
+      params.gridSize = parseInt(e.target.value);
+      if (gridValue) gridValue.textContent = e.target.value;
       generate();
     });
   }
 
-  // Wall thickness
-  const wallSlider = document.getElementById('wallThickness');
-  const wallValue = document.getElementById('wallValue');
-  if (wallSlider) {
-    wallSlider.addEventListener('input', (e) => {
-      params.wallThickness = parseFloat(e.target.value);
-      if (wallValue) wallValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+  // Connection probability
+  const connSlider = document.getElementById('connectionProb');
+  const connValue = document.getElementById('connValue');
+  if (connSlider) {
+    connSlider.addEventListener('input', (e) => {
+      params.connectionProb = parseFloat(e.target.value);
+      if (connValue) connValue.textContent = (e.target.value * 100).toFixed(0) + '%';
       generate();
     });
   }
 
-  // Roundness
-  const roundSlider = document.getElementById('roundness');
-  const roundValue = document.getElementById('roundValue');
-  if (roundSlider) {
-    roundSlider.addEventListener('input', (e) => {
-      params.roundness = parseFloat(e.target.value);
-      if (roundValue) roundValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+  // Diagonals toggle
+  const diagToggle = document.getElementById('diagonals');
+  if (diagToggle) {
+    diagToggle.addEventListener('change', (e) => {
+      params.diagonals = e.target.checked;
+      generate();
+    });
+  }
+
+  // Star nodes
+  const starSlider = document.getElementById('starNodes');
+  const starValue = document.getElementById('starValue');
+  if (starSlider) {
+    starSlider.addEventListener('input', (e) => {
+      params.starNodes = parseFloat(e.target.value);
+      if (starValue) starValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      generate();
+    });
+  }
+
+  // Line weight
+  const weightSlider = document.getElementById('lineWeight');
+  const weightValue = document.getElementById('weightValue');
+  if (weightSlider) {
+    weightSlider.addEventListener('input', (e) => {
+      params.lineWeight = parseFloat(e.target.value);
+      if (weightValue) weightValue.textContent = e.target.value + 'px';
       generate();
     });
   }
@@ -358,7 +303,7 @@ function setupControls() {
     });
   });
 
-  // Export buttons
+  // Export
   const exportPNG = document.getElementById('exportPNG');
   if (exportPNG) {
     exportPNG.addEventListener('click', () => {
@@ -399,22 +344,114 @@ function exportAsSVG() {
   randomSeed(params.seed);
   noiseSeed(params.seed);
 
-  const voids = generateVoids();
+  const margin = 40;
+  const gridSize = params.gridSize;
+  const cellW = (width - margin * 2) / gridSize;
+  const cellH = (height - margin * 2) / gridSize;
+
+  // Generate points
+  const points = [];
+  for (let i = 0; i <= gridSize; i++) {
+    points[i] = [];
+    for (let j = 0; j <= gridSize; j++) {
+      let x = margin + i * cellW;
+      let y = margin + j * cellH;
+      if (params.imperfection > 0) {
+        const drift = params.imperfection * cellW * 0.15;
+        x += applyHand(0, noise(i * 0.5, j * 0.5) * drift, 'position');
+        y += applyHand(0, noise(i * 0.5 + 100, j * 0.5) * drift, 'position');
+      }
+      points[i][j] = { x, y };
+    }
+  }
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-  <rect width="100%" height="100%" fill="${params.fgColor}"/>
-  <g fill="${params.bgColor}">
+  <rect width="100%" height="100%" fill="${params.bgColor}"/>
+  <g stroke="${params.fgColor}" stroke-width="${params.lineWeight}" stroke-linecap="round" stroke-linejoin="round" fill="none">
 `;
 
-  for (const v of voids) {
-    svg += generateShapeSVG(v);
+  // Horizontal lines
+  for (let j = 0; j <= gridSize; j++) {
+    for (let i = 0; i < gridSize; i++) {
+      if (shouldConnect(i, j, 'h')) {
+        svg += svgLine(points[i][j], points[i + 1][j]);
+      }
+    }
   }
 
+  // Vertical lines
+  for (let i = 0; i <= gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      if (shouldConnect(i, j, 'v')) {
+        svg += svgLine(points[i][j], points[i][j + 1]);
+      }
+    }
+  }
+
+  // Diagonals
+  if (params.diagonals) {
+    for (let i = 0; i < gridSize; i++) {
+      for (let j = 0; j < gridSize; j++) {
+        if (shouldConnect(i, j, 'd1')) {
+          svg += svgLine(points[i][j], points[i + 1][j + 1]);
+        }
+        if (shouldConnect(i, j, 'd2')) {
+          svg += svgLine(points[i + 1][j], points[i][j + 1]);
+        }
+      }
+    }
+  }
+
+  // Star nodes
+  for (let i = 0; i <= gridSize; i++) {
+    for (let j = 0; j <= gridSize; j++) {
+      if (shouldDrawStar(i, j)) {
+        svg += svgStar(points[i][j], cellW * 0.25);
+      }
+    }
+  }
+
+  // Border
+  svg += `    <rect x="${margin * 0.5}" y="${margin * 0.5}" width="${width - margin}" height="${height - margin}" stroke-width="${params.lineWeight * 1.5}"/>
+`;
+
   svg += `  </g>
-  <rect x="2" y="2" width="${width-4}" height="${height-4}" fill="none" stroke="${params.bgColor}" stroke-width="4"/>
 </svg>`;
 
+  downloadSVG(svg);
+}
+
+function svgLine(p1, p2) {
+  let x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
+  if (params.imperfection > 0) {
+    const wobble = params.imperfection * 2;
+    x1 += random(-wobble, wobble);
+    y1 += random(-wobble, wobble);
+    x2 += random(-wobble, wobble);
+    y2 += random(-wobble, wobble);
+  }
+  return `    <line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}"/>\n`;
+}
+
+function svgStar(p, size) {
+  const rays = floor(random(4, 9));
+  const innerR = size * 0.3;
+  const outerR = size;
+
+  let lines = '';
+  for (let i = 0; i < rays; i++) {
+    const angle = (TWO_PI / rays) * i - HALF_PI;
+    const x1 = p.x + cos(angle) * innerR;
+    const y1 = p.y + sin(angle) * innerR;
+    const x2 = p.x + cos(angle) * outerR;
+    const y2 = p.y + sin(angle) * outerR;
+    lines += `    <line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}"/>\n`;
+  }
+  return lines;
+}
+
+function downloadSVG(svg) {
   const blob = new Blob([svg], { type: 'image/svg+xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -424,51 +461,6 @@ function exportAsSVG() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-}
-
-function generateShapeSVG(v) {
-  const transform = `transform="translate(${v.x.toFixed(2)},${v.y.toFixed(2)}) rotate(${degrees(v.rotation).toFixed(2)})"`;
-
-  switch(v.type) {
-    case 'circle':
-      return `    <circle cx="0" cy="0" r="${(v.size/2).toFixed(2)}" ${transform}/>\n`;
-
-    case 'pill':
-      const pw = v.size;
-      const ph = v.size * 0.5;
-      const pr = ph * 0.5;
-      return `    <rect x="${(-pw/2).toFixed(2)}" y="${(-ph/2).toFixed(2)}" width="${pw.toFixed(2)}" height="${ph.toFixed(2)}" rx="${pr.toFixed(2)}" ${transform}/>\n`;
-
-    case 'cross':
-      const cw = v.size * 0.35;
-      const cl = v.size * 0.5;
-      // Simplified as two overlapping rects
-      return `    <g ${transform}>
-      <rect x="${(-cw/2).toFixed(2)}" y="${(-cl).toFixed(2)}" width="${cw.toFixed(2)}" height="${(cl*2).toFixed(2)}" rx="${(cw*0.3).toFixed(2)}"/>
-      <rect x="${(-cl).toFixed(2)}" y="${(-cw/2).toFixed(2)}" width="${(cl*2).toFixed(2)}" height="${cw.toFixed(2)}" rx="${(cw*0.3).toFixed(2)}"/>
-    </g>\n`;
-
-    case 'quatrefoil':
-    case 'trefoil':
-      // For complex shapes, use circles
-      const lobes = v.type === 'quatrefoil' ? 4 : 3;
-      const lobeSize = v.size * (v.type === 'quatrefoil' ? 0.45 : 0.5);
-      const offset = v.size * (v.type === 'quatrefoil' ? 0.25 : 0.28);
-
-      let circles = `    <g ${transform}>\n`;
-      for (let i = 0; i < lobes; i++) {
-        const angle = (TWO_PI / lobes) * i - (v.type === 'trefoil' ? HALF_PI : 0);
-        const lx = cos(angle) * offset;
-        const ly = sin(angle) * offset;
-        circles += `      <circle cx="${lx.toFixed(2)}" cy="${ly.toFixed(2)}" r="${(lobeSize/2).toFixed(2)}"/>\n`;
-      }
-      circles += `      <circle cx="0" cy="0" r="${(lobeSize * (v.type === 'quatrefoil' ? 0.4 : 0.3)).toFixed(2)}"/>\n`;
-      circles += `    </g>\n`;
-      return circles;
-
-    default:
-      return '';
-  }
 }
 
 function windowResized() {
