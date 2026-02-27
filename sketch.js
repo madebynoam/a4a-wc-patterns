@@ -7,12 +7,13 @@ let params = {
   gridSize: 6,
   lineWeight: 2.5,
   flowStrength: 0.05,   // How much flow field influences direction
-  wobble: 0.01,         // Hand-drawn imperfection
+  wobble: 0.005,        // Hand-drawn imperfection
   density: 0.7,         // How many lines to draw
   symmetry: true,       // 4-fold mirror symmetry (Islamic aesthetic)
   connected: false,     // Lines connect at intersections vs overlap
-  sunburst: 0,          // Art Deco sunburst rays (0 = none, 1 = full)
+  sunburst: false,      // Art Deco sunburst rays on/off
   sunburstSpread: 0.5,  // How spread out the rays are (0 = tight, 1 = wide)
+  sunburstHeight: 1,    // Height of sunburst rays (0-1, 1 = full height)
   fountain: 0,          // Frozen fountain (0 = none, 1 = full)
   sideFountains: false, // Add smaller side arches (Gateway of India style)
   sideFountainHeight: 0.5, // Height of side fountains (0-1, relative to main)
@@ -33,6 +34,7 @@ function setup() {
 
   setupControls();
   noLoop();
+  loadSharedPreset();
   generate();
 }
 
@@ -155,7 +157,7 @@ function draw() {
   }
 
   // Art Deco sunburst - rays from bottom center to top grid points
-  if (params.sunburst > 0) {
+  if (params.sunburst) {
     drawSunburst(cx, cy, gridSize);
   }
 
@@ -174,13 +176,16 @@ function drawSunburst(cx, cy, gridSize) {
   // Spread controls how many columns out from center to target (0 = just center, 1 = full width)
   const maxSpreadCols = floor(params.sunburstSpread * centerI) + 1;
 
-  // Draw rays to grid points along the top row
+  // Height controls how far up the rays go (1 = top row, 0.5 = middle)
+  const targetRow = round(gridSize * (1 - params.sunburstHeight));
+
+  // Draw rays to grid points
   for (let i = -maxSpreadCols; i <= maxSpreadCols; i++) {
     const targetI = centerI + i;
     if (targetI < 0 || targetI > gridSize) continue;
 
     const targetX = margin + targetI * cellSize;
-    const targetY = margin; // Top row
+    const targetY = margin + targetRow * cellSize;
 
     line(startX, startY, targetX, targetY);
   }
@@ -400,11 +405,16 @@ function setupControls() {
   // Wobble (hand-drawn jiggle)
   const wobbleSlider = document.getElementById('wobble');
   const wobbleValue = document.getElementById('wobbleValue');
+  const formatWobble = (v) => {
+    const pct = v * 100;
+    return (pct % 1 === 0 ? pct.toFixed(0) : pct.toFixed(1)) + '%';
+  };
   if (wobbleSlider) {
     wobbleSlider.value = params.wobble;
+    if (wobbleValue) wobbleValue.textContent = formatWobble(params.wobble);
     wobbleSlider.addEventListener('input', (e) => {
       params.wobble = parseFloat(e.target.value);
-      if (wobbleValue) wobbleValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      if (wobbleValue) wobbleValue.textContent = formatWobble(params.wobble);
       redraw();
     });
   }
@@ -419,14 +429,12 @@ function setupControls() {
     });
   }
 
-  // Sunburst
-  const sunburstSlider = document.getElementById('sunburst');
-  const sunburstValue = document.getElementById('sunburstValue');
-  if (sunburstSlider) {
-    sunburstSlider.value = params.sunburst;
-    sunburstSlider.addEventListener('input', (e) => {
-      params.sunburst = parseFloat(e.target.value);
-      if (sunburstValue) sunburstValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+  // Sunburst toggle
+  const sunburstCheck = document.getElementById('sunburst');
+  if (sunburstCheck) {
+    sunburstCheck.checked = params.sunburst;
+    sunburstCheck.addEventListener('change', (e) => {
+      params.sunburst = e.target.checked;
       redraw();
     });
   }
@@ -439,6 +447,18 @@ function setupControls() {
     spreadSlider.addEventListener('input', (e) => {
       params.sunburstSpread = parseFloat(e.target.value);
       if (spreadValue) spreadValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      redraw();
+    });
+  }
+
+  // Sunburst Height
+  const sunburstHeightSlider = document.getElementById('sunburstHeight');
+  const sunburstHeightValue = document.getElementById('sunburstHeightValue');
+  if (sunburstHeightSlider) {
+    sunburstHeightSlider.value = params.sunburstHeight;
+    sunburstHeightSlider.addEventListener('input', (e) => {
+      params.sunburstHeight = parseFloat(e.target.value);
+      if (sunburstHeightValue) sunburstHeightValue.textContent = (e.target.value * 100).toFixed(0) + '%';
       redraw();
     });
   }
@@ -528,12 +548,101 @@ function setupControls() {
 // PRESETS
 // ============================================
 
-function savePreset() {
+function savePreset(hasSvg = false) {
   const presets = JSON.parse(localStorage.getItem('jaliPresets') || '[]');
-  const preset = { ...params, id: Date.now() };
-  presets.push(preset);
+  // Generate thumbnail
+  const thumbnail = generateThumbnail();
+
+  // Check if preset with same seed already exists
+  const existingIndex = presets.findIndex(p => p.seed === params.seed);
+  if (existingIndex >= 0) {
+    // Update existing preset
+    if (hasSvg) presets[existingIndex].hasSvg = true;
+    presets[existingIndex].thumbnail = thumbnail;
+  } else {
+    const preset = { ...params, id: Date.now(), hasSvg, thumbnail };
+    presets.push(preset);
+  }
   localStorage.setItem('jaliPresets', JSON.stringify(presets));
   loadPresets();
+}
+
+function generateThumbnail() {
+  // Create offscreen graphics at small size
+  const size = 32;
+  const pg = createGraphics(size, size);
+
+  // Draw pattern at thumbnail size
+  pg.background(params.bgColor);
+  pg.stroke(params.fgColor);
+  pg.strokeWeight(params.lineWeight * (size / width));
+  pg.strokeCap(ROUND);
+  pg.strokeJoin(ROUND);
+  pg.noFill();
+
+  const thumbMargin = 4;
+  const thumbCellSize = (size - thumbMargin * 2) / params.gridSize;
+  const gridSize = params.gridSize;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  // Simplified render - just the grid lines
+  randomSeed(params.seed);
+  noiseSeed(params.seed);
+
+  const halfGrid = params.symmetry ? ceil(gridSize / 2) : gridSize;
+  const jMax = params.symmetry ? halfGrid : gridSize;
+  const iMax = params.symmetry ? halfGrid : gridSize;
+
+  let segments = [];
+
+  for (let j = 0; j <= jMax; j++) {
+    for (let i = 0; i < iMax; i++) {
+      if (random() < params.density) segments.push([i, j, i + 1, j]);
+    }
+  }
+  for (let i = 0; i <= iMax; i++) {
+    for (let j = 0; j < jMax; j++) {
+      if (random() < params.density) segments.push([i, j, i, j + 1]);
+    }
+  }
+  if (params.connected) {
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        if (random() < params.density * 0.9) {
+          const dir = noise(i * 0.3, j * 0.3, params.seed * 0.1) > 0.5;
+          if (dir) segments.push([i, j, i + 1, j + 1]);
+          else segments.push([i + 1, j, i, j + 1]);
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        if (noise(i * 0.5, j * 0.5, 0) < params.density * 0.8) segments.push([i, j, i + 1, j + 1]);
+        if (noise(i * 0.5, j * 0.5, 100) < params.density * 0.8) segments.push([i + 1, j, i, j + 1]);
+      }
+    }
+  }
+
+  for (let seg of segments) {
+    const x1 = thumbMargin + seg[0] * thumbCellSize;
+    const y1 = thumbMargin + seg[1] * thumbCellSize;
+    const x2 = thumbMargin + seg[2] * thumbCellSize;
+    const y2 = thumbMargin + seg[3] * thumbCellSize;
+
+    pg.line(x1, y1, x2, y2);
+    if (params.symmetry) {
+      pg.line(2 * cx - x1, y1, 2 * cx - x2, y2);
+      pg.line(x1, 2 * cy - y1, x2, 2 * cy - y2);
+      pg.line(2 * cx - x1, 2 * cy - y1, 2 * cx - x2, 2 * cy - y2);
+    }
+  }
+
+  // Get data URL
+  const dataUrl = pg.canvas.toDataURL('image/png');
+  pg.remove();
+  return dataUrl;
 }
 
 function loadPresets() {
@@ -545,12 +654,17 @@ function loadPresets() {
 
   presets.forEach((preset, index) => {
     const btn = document.createElement('button');
-    btn.className = 'preset-btn';
-    btn.innerHTML = `#${preset.seed} <span class="delete">×</span>`;
+    btn.className = 'preset-btn' + (preset.hasSvg ? ' has-svg' : '');
+    const thumb = preset.thumbnail ? `<img class="preset-thumb" src="${preset.thumbnail}" alt="">` : '';
+    const shareIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v13"/><path d="m16 6-4-4-4 4"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/></svg>`;
+    const deleteIcon = `<svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>`;
+    btn.innerHTML = `${thumb}<span class="preset-label">#${preset.seed}</span><span class="preset-actions"><span class="share" title="Copy share link">${shareIcon}</span><span class="delete" title="Delete">${deleteIcon}</span></span>`;
 
     btn.addEventListener('click', (e) => {
-      if (e.target.classList.contains('delete')) {
+      if (e.target.closest('.delete')) {
         deletePreset(index);
+      } else if (e.target.closest('.share')) {
+        sharePreset(preset);
       } else {
         applyPreset(preset);
       }
@@ -558,6 +672,51 @@ function loadPresets() {
 
     container.appendChild(btn);
   });
+}
+
+function sharePreset(preset) {
+  // Create shareable params (exclude thumbnail and internal fields)
+  const shareData = {
+    seed: preset.seed,
+    gridSize: preset.gridSize,
+    lineWeight: preset.lineWeight,
+    flowStrength: preset.flowStrength,
+    wobble: preset.wobble,
+    density: preset.density,
+    symmetry: preset.symmetry,
+    connected: preset.connected,
+    sunburst: preset.sunburst,
+    sunburstSpread: preset.sunburstSpread,
+    sunburstHeight: preset.sunburstHeight,
+    fountain: preset.fountain,
+    sideFountains: preset.sideFountains,
+    sideFountainHeight: preset.sideFountainHeight,
+    bgColor: preset.bgColor,
+    fgColor: preset.fgColor
+  };
+
+  const encoded = btoa(JSON.stringify(shareData));
+  const url = `${window.location.origin}${window.location.pathname}#p=${encoded}`;
+
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('Share link copied!');
+  });
+}
+
+function loadSharedPreset() {
+  const hash = window.location.hash;
+  if (hash.startsWith('#p=')) {
+    try {
+      const encoded = hash.slice(3);
+      const shareData = JSON.parse(atob(encoded));
+      applyPreset(shareData);
+      showToast('Loaded shared pattern!');
+      // Clear hash after loading
+      history.replaceState(null, '', window.location.pathname);
+    } catch (e) {
+      console.error('Failed to load shared preset:', e);
+    }
+  }
 }
 
 function applyPreset(preset) {
@@ -572,8 +731,8 @@ function applyPreset(preset) {
     ['lineWeight', params.lineWeight],
     ['imperfection', params.flowStrength],
     ['wobble', params.wobble],
-    ['sunburst', params.sunburst],
     ['sunburstSpread', params.sunburstSpread],
+    ['sunburstHeight', params.sunburstHeight],
     ['fountain', params.fountain],
   ];
 
@@ -585,6 +744,9 @@ function applyPreset(preset) {
   // Update checkboxes
   const connectedEl = document.getElementById('connected');
   if (connectedEl) connectedEl.checked = params.connected;
+
+  const sunburstEl = document.getElementById('sunburst');
+  if (sunburstEl) sunburstEl.checked = params.sunburst;
 
   const sideFountainsEl = document.getElementById('sideFountains');
   if (sideFountainsEl) sideFountainsEl.checked = params.sideFountains;
@@ -599,9 +761,9 @@ function applyPreset(preset) {
   document.getElementById('diagValue').textContent = (params.density * 100).toFixed(0) + '%';
   document.getElementById('weightValue').textContent = params.lineWeight + 'px';
   document.getElementById('imperfectValue').textContent = (params.flowStrength * 100).toFixed(0) + '%';
-  document.getElementById('wobbleValue').textContent = (params.wobble * 100).toFixed(0) + '%';
-  document.getElementById('sunburstValue').textContent = (params.sunburst * 100).toFixed(0) + '%';
+  document.getElementById('wobbleValue').textContent = ((params.wobble * 100) % 1 === 0 ? (params.wobble * 100).toFixed(0) : (params.wobble * 100).toFixed(1)) + '%';
   document.getElementById('spreadValue').textContent = (params.sunburstSpread * 100).toFixed(0) + '%';
+  document.getElementById('sunburstHeightValue').textContent = ((params.sunburstHeight || 1) * 100).toFixed(0) + '%';
   document.getElementById('fountainValue').textContent = (params.fountain * 100).toFixed(0) + '%';
 
   // Update color swatch
@@ -768,18 +930,19 @@ function generateSVGString() {
   }
 
   // Sunburst rays
-  if (params.sunburst > 0) {
+  if (params.sunburst) {
     const centerI = floor(gridSize / 2);
     const startX = margin + centerI * localCellSize;
     const startY = margin + gridSize * localCellSize;
     const maxSpreadCols = floor(params.sunburstSpread * centerI) + 1;
+    const targetRow = round(gridSize * (1 - params.sunburstHeight));
 
     for (let i = -maxSpreadCols; i <= maxSpreadCols; i++) {
       const targetI = centerI + i;
       if (targetI < 0 || targetI > gridSize) continue;
 
       const targetX = margin + targetI * localCellSize;
-      const targetY = margin;
+      const targetY = margin + targetRow * localCellSize;
       svg += `    <line x1="${startX}" y1="${startY}" x2="${targetX}" y2="${targetY}"/>\n`;
     }
   }
@@ -863,7 +1026,9 @@ function exportAsSVG() {
 function copySVGToClipboard() {
   const svg = generateSVGString();
   navigator.clipboard.writeText(svg).then(() => {
-    showToast('SVG copied to clipboard');
+    // Also save as preset with SVG flag
+    savePreset(true);
+    showToast('SVG copied & preset saved');
   });
 }
 
