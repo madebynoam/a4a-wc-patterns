@@ -7,7 +7,7 @@ let params = {
   gridSize: 6,
   lineWeight: 2.5,
   flowStrength: 0.05,   // How much flow field influences direction
-  wobble: 0.02,         // Hand-drawn imperfection
+  wobble: 0.01,         // Hand-drawn imperfection
   density: 0.7,         // How many lines to draw
   symmetry: true,       // 4-fold mirror symmetry (Islamic aesthetic)
   connected: false,     // Lines connect at intersections vs overlap
@@ -492,9 +492,18 @@ function setupControls() {
   });
 
   document.getElementById('exportSVG')?.addEventListener('click', exportAsSVG);
+  document.getElementById('copySVG')?.addEventListener('click', copySVGToClipboard);
 
   document.addEventListener('keydown', (e) => {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+    // Cmd+Shift+S to copy SVG
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 's') {
+      e.preventDefault();
+      copySVGToClipboard();
+      return;
+    }
+
     switch(e.key.toLowerCase()) {
       case ' ':
       case 'g':
@@ -614,14 +623,16 @@ function deletePreset(index) {
 // SVG EXPORT
 // ============================================
 
-function exportAsSVG() {
+function generateSVGString() {
   randomSeed(params.seed);
   noiseSeed(params.seed);
 
   const gridSize = params.gridSize;
   const localCellSize = (width - margin * 2) / gridSize;
+  const cx = width / 2;
+  const cy = height / 2;
 
-  // Rebuild flow field for export
+  // Rebuild flow field for export (must match draw() exactly)
   const localFlowField = [];
   for (let i = 0; i <= gridSize; i++) {
     localFlowField[i] = [];
@@ -649,13 +660,8 @@ function exportAsSVG() {
     return lerp(a0, a1, fj);
   }
 
-  function generatePath(i1, j1, i2, j2) {
-    const x1 = margin + i1 * localCellSize;
-    const y1 = margin + j1 * localCellSize;
-    const x2 = margin + i2 * localCellSize;
-    const y2 = margin + j2 * localCellSize;
+  function generatePathFromPixels(x1, y1, x2, y2) {
     const segments = 8;
-
     let points = [];
     for (let t = 0; t <= segments; t++) {
       const progress = t / segments;
@@ -678,7 +684,6 @@ function exportAsSVG() {
 
       points.push({x, y});
     }
-
     return 'M ' + points.map(p => `${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' L ');
   }
 
@@ -688,43 +693,162 @@ function exportAsSVG() {
   <g stroke="${params.fgColor}" stroke-width="${params.lineWeight}" stroke-linecap="round" stroke-linejoin="round" fill="none">
 `;
 
-  // Horizontal connections
-  for (let j = 0; j <= gridSize; j++) {
-    for (let i = 0; i < gridSize; i++) {
+  // Match draw() exactly: collect segments first
+  const halfGrid = params.symmetry ? ceil(gridSize / 2) : gridSize;
+  const jMax = params.symmetry ? halfGrid : gridSize;
+  const iMax = params.symmetry ? halfGrid : gridSize;
+
+  let segments = [];
+
+  // Horizontal connections (same order as draw())
+  for (let j = 0; j <= jMax; j++) {
+    for (let i = 0; i < iMax; i++) {
       if (random() < params.density) {
-        svg += `    <path d="${generatePath(i, j, i + 1, j)}"/>\n`;
+        segments.push([i, j, i + 1, j]);
       }
     }
   }
 
   // Vertical connections
-  for (let i = 0; i <= gridSize; i++) {
-    for (let j = 0; j < gridSize; j++) {
+  for (let i = 0; i <= iMax; i++) {
+    for (let j = 0; j < jMax; j++) {
       if (random() < params.density) {
-        svg += `    <path d="${generatePath(i, j, i, j + 1)}"/>\n`;
+        segments.push([i, j, i, j + 1]);
       }
     }
   }
 
-  // Diagonals
-  for (let i = 0; i < gridSize; i++) {
-    for (let j = 0; j < gridSize; j++) {
-      const n1 = noise(i * 0.5, j * 0.5, 0);
-      const n2 = noise(i * 0.5, j * 0.5, 100);
+  // Diagonals - respect connected mode
+  if (params.connected) {
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        if (random() < params.density * 0.9) {
+          const dir = noise(i * 0.3, j * 0.3, params.seed * 0.1) > 0.5;
+          if (dir) {
+            segments.push([i, j, i + 1, j + 1]);
+          } else {
+            segments.push([i + 1, j, i, j + 1]);
+          }
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        const n1 = noise(i * 0.5, j * 0.5, 0);
+        const n2 = noise(i * 0.5, j * 0.5, 100);
+        if (n1 < params.density * 0.8) {
+          segments.push([i, j, i + 1, j + 1]);
+        }
+        if (n2 < params.density * 0.8) {
+          segments.push([i + 1, j, i, j + 1]);
+        }
+      }
+    }
+  }
 
-      if (n1 < params.density * 0.8) {
-        svg += `    <path d="${generatePath(i, j, i + 1, j + 1)}"/>\n`;
+  // Draw all segments with symmetry mirroring
+  for (let seg of segments) {
+    const x1 = margin + seg[0] * localCellSize;
+    const y1 = margin + seg[1] * localCellSize;
+    const x2 = margin + seg[2] * localCellSize;
+    const y2 = margin + seg[3] * localCellSize;
+
+    // Original (top-left quadrant or full)
+    svg += `    <path d="${generatePathFromPixels(x1, y1, x2, y2)}"/>\n`;
+
+    if (params.symmetry) {
+      // Mirror horizontally (to top-right)
+      svg += `    <path d="${generatePathFromPixels(2 * cx - x1, y1, 2 * cx - x2, y2)}"/>\n`;
+      // Mirror vertically (to bottom-left)
+      svg += `    <path d="${generatePathFromPixels(x1, 2 * cy - y1, x2, 2 * cy - y2)}"/>\n`;
+      // Mirror both (to bottom-right)
+      svg += `    <path d="${generatePathFromPixels(2 * cx - x1, 2 * cy - y1, 2 * cx - x2, 2 * cy - y2)}"/>\n`;
+    }
+  }
+
+  // Sunburst rays
+  if (params.sunburst > 0) {
+    const centerI = floor(gridSize / 2);
+    const startX = margin + centerI * localCellSize;
+    const startY = margin + gridSize * localCellSize;
+    const maxSpreadCols = floor(params.sunburstSpread * centerI) + 1;
+
+    for (let i = -maxSpreadCols; i <= maxSpreadCols; i++) {
+      const targetI = centerI + i;
+      if (targetI < 0 || targetI > gridSize) continue;
+
+      const targetX = margin + targetI * localCellSize;
+      const targetY = margin;
+      svg += `    <line x1="${startX}" y1="${startY}" x2="${targetX}" y2="${targetY}"/>\n`;
+    }
+  }
+
+  // Frozen fountain
+  if (params.fountain > 0) {
+    const centerI = floor(gridSize / 2);
+    const maxLayers = floor(1 + params.fountain * 2);
+    const bottomY = margin + gridSize * localCellSize;
+
+    // Helper to draw a fountain
+    function svgFountain(cI, layers, drawCenter, maxHeight) {
+      let result = '';
+      const topLimit = margin + (gridSize - maxHeight) * localCellSize;
+
+      for (let layer = 1; layer <= layers; layer++) {
+        const leftI = cI - layer;
+        const rightI = cI + layer;
+        if (leftI < 0 || rightI > gridSize) continue;
+
+        const leftX = margin + leftI * localCellSize;
+        const rightX = margin + rightI * localCellSize;
+        const archRadius = layer * localCellSize;
+        const archTopY = Math.max(topLimit, margin + layer * localCellSize);
+        const archCenterX = margin + cI * localCellSize;
+
+        // Vertical lines
+        result += `    <line x1="${leftX}" y1="${bottomY}" x2="${leftX}" y2="${archTopY}"/>\n`;
+        result += `    <line x1="${rightX}" y1="${bottomY}" x2="${rightX}" y2="${archTopY}"/>\n`;
+
+        // Arch (semicircle)
+        let archPoints = [];
+        for (let t = 0; t <= 20; t++) {
+          const angle = Math.PI + (t / 20) * Math.PI;
+          const x = archCenterX + Math.cos(angle) * archRadius;
+          const y = archTopY + Math.sin(angle) * archRadius;
+          archPoints.push(`${x.toFixed(2)} ${y.toFixed(2)}`);
+        }
+        result += `    <path d="M ${archPoints.join(' L ')}"/>\n`;
       }
 
-      if (n2 < params.density * 0.8) {
-        svg += `    <path d="${generatePath(i + 1, j, i, j + 1)}"/>\n`;
+      // Center line
+      if (drawCenter) {
+        const centerX = margin + cI * localCellSize;
+        result += `    <line x1="${centerX}" y1="${bottomY}" x2="${centerX}" y2="${topLimit}"/>\n`;
       }
+
+      return result;
+    }
+
+    // Main fountain
+    svg += svgFountain(centerI, maxLayers, true, gridSize);
+
+    // Side fountains
+    if (params.sideFountains && maxLayers >= 1) {
+      const sideMaxRows = Math.max(1, floor(gridSize * params.sideFountainHeight));
+      svg += svgFountain(1, 1, false, sideMaxRows);
+      svg += svgFountain(gridSize - 1, 1, false, sideMaxRows);
     }
   }
 
   svg += `  </g>
 </svg>`;
 
+  return svg;
+}
+
+function exportAsSVG() {
+  const svg = generateSVGString();
   const blob = new Blob([svg], { type: 'image/svg+xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -734,6 +858,22 @@ function exportAsSVG() {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function copySVGToClipboard() {
+  const svg = generateSVGString();
+  navigator.clipboard.writeText(svg).then(() => {
+    showToast('SVG copied to clipboard');
+  });
+}
+
+function showToast(message) {
+  const toast = document.getElementById('toast');
+  if (toast) {
+    toast.textContent = message;
+    toast.classList.add('show');
+    setTimeout(() => toast.classList.remove('show'), 2000);
+  }
 }
 
 function windowResized() {

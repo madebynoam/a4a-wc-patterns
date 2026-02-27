@@ -111,6 +111,27 @@
       color: #888;
     }
     .preset-btn .delete:hover { color: #f55; }
+    #toast {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(100px);
+      background: #fff;
+      color: #000;
+      padding: 12px 24px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 500;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      pointer-events: none;
+      z-index: 1000;
+    }
+    #toast.show {
+      transform: translateX(-50%) translateY(0);
+      opacity: 1;
+    }
   </style>
 </head>
 <body>
@@ -156,8 +177,8 @@
 
     <div class="control-group">
       <label>Wobble</label>
-      <input type="range" id="wobble" min="0" max="0.1" step="0.005" value="0.02">
-      <div class="value-display"><span id="wobbleValue">2%</span></div>
+      <input type="range" id="wobble" min="0" max="0.1" step="0.005" value="0.01">
+      <div class="value-display"><span id="wobbleValue">1%</span></div>
     </div>
 
     <div class="control-group">
@@ -212,6 +233,7 @@
     <div class="divider"></div>
 
     <button id="exportSVG">Export SVG</button>
+    <button id="copySVG" class="secondary">Copy SVG</button>
     <button id="exportPNG" class="secondary">Export PNG</button>
 
     <div class="divider"></div>
@@ -225,11 +247,13 @@
     <div class="shortcuts">
       <kbd>Space</kbd> / <kbd>G</kbd> Generate<br>
       <kbd>S</kbd> Export SVG<br>
+      <kbd>⌘⇧S</kbd> Copy SVG<br>
       <kbd>P</kbd> Export PNG
     </div>
   </div>
 
   <div id="canvas-container"></div>
+  <div id="toast">SVG copied to clipboard</div>
 
   <script src="sketch.js"></script>
 </body>
