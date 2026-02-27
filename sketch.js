@@ -1,17 +1,22 @@
-// Jali Lattice Generator
-// Simple: grid + diagonals = lattice pattern
+// Generative Jali Machine
+// Flow field + particle lines = organic lattice patterns
+// Inspired by Tyler Hobbs' Fidenza approach
 
 let params = {
   seed: 42,
   gridSize: 6,
-  diagonalProb: 0.5,    // Probability of each diagonal
   lineWeight: 2.5,
-  imperfection: 0,
+  flowStrength: 0.3,    // How much flow field influences direction
+  wobble: 0.02,         // Hand-drawn imperfection
+  density: 0.7,         // How many lines to draw
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
 
 let canvas;
+let flowField;
+let cellSize;
+let margin = 40;
 
 function setup() {
   const container = document.getElementById('canvas-container');
@@ -33,63 +38,136 @@ function draw() {
   noiseSeed(params.seed);
 
   background(params.bgColor);
-
   stroke(params.fgColor);
   strokeWeight(params.lineWeight);
-  strokeCap(SQUARE);
-  strokeJoin(MITER);
+  strokeCap(ROUND);
+  strokeJoin(ROUND);
   noFill();
 
-  const margin = 40;
   const gridSize = params.gridSize;
-  const cellW = (width - margin * 2) / gridSize;
-  const cellH = (height - margin * 2) / gridSize;
+  cellSize = (width - margin * 2) / gridSize;
 
-  // Draw the base grid (all horizontal and vertical lines)
-  // Horizontals
-  for (let j = 0; j <= gridSize; j++) {
-    const y = margin + j * cellH;
-    drawLine(margin, y, width - margin, y);
-  }
-
-  // Verticals
+  // Build flow field - angles at each grid point influenced by noise
+  flowField = [];
   for (let i = 0; i <= gridSize; i++) {
-    const x = margin + i * cellW;
-    drawLine(x, margin, x, height - margin);
+    flowField[i] = [];
+    for (let j = 0; j <= gridSize; j++) {
+      // Base angle from noise, biased toward 45° increments (jali aesthetic)
+      const noiseVal = noise(i * 0.5, j * 0.5, params.seed * 0.01);
+      // Quantize to 8 directions but with some deviation
+      const baseAngle = floor(noiseVal * 8) * (PI / 4);
+      const deviation = (noise(i * 0.3, j * 0.3, 100) - 0.5) * params.flowStrength * PI;
+      flowField[i][j] = baseAngle + deviation;
+    }
   }
 
-  // Now add diagonals based on seed
+  // Draw the lattice structure
+  // Start lines from grid intersections, let them flow to neighbors
+
+  // Horizontal-ish connections
+  for (let j = 0; j <= gridSize; j++) {
+    for (let i = 0; i < gridSize; i++) {
+      if (random() < params.density) {
+        drawFlowingLine(i, j, i + 1, j);
+      }
+    }
+  }
+
+  // Vertical-ish connections
+  for (let i = 0; i <= gridSize; i++) {
+    for (let j = 0; j < gridSize; j++) {
+      if (random() < params.density) {
+        drawFlowingLine(i, j, i, j + 1);
+      }
+    }
+  }
+
+  // Diagonal connections - the jali magic
   for (let i = 0; i < gridSize; i++) {
     for (let j = 0; j < gridSize; j++) {
-      const x = margin + i * cellW;
-      const y = margin + j * cellH;
-
-      // Use noise to decide which diagonals to draw
       const n1 = noise(i * 0.5, j * 0.5, 0);
       const n2 = noise(i * 0.5, j * 0.5, 100);
 
       // Diagonal: top-left to bottom-right
-      if (n1 < params.diagonalProb) {
-        drawLine(x, y, x + cellW, y + cellH);
+      if (n1 < params.density * 0.8) {
+        drawFlowingLine(i, j, i + 1, j + 1);
       }
 
       // Diagonal: top-right to bottom-left
-      if (n2 < params.diagonalProb) {
-        drawLine(x + cellW, y, x, y + cellH);
+      if (n2 < params.density * 0.8) {
+        drawFlowingLine(i + 1, j, i, j + 1);
       }
     }
   }
 }
 
-function drawLine(x1, y1, x2, y2) {
-  if (params.imperfection > 0) {
-    const w = params.imperfection * 3;
-    x1 += random(-w, w);
-    y1 += random(-w, w);
-    x2 += random(-w, w);
-    y2 += random(-w, w);
+// Draw a line between two grid points, but let it flow organically
+function drawFlowingLine(i1, j1, i2, j2) {
+  const x1 = margin + i1 * cellSize;
+  const y1 = margin + j1 * cellSize;
+  const x2 = margin + i2 * cellSize;
+  const y2 = margin + j2 * cellSize;
+
+  // Number of segments - more = smoother curve
+  const segments = 8;
+
+  beginShape();
+  for (let t = 0; t <= segments; t++) {
+    const progress = t / segments;
+
+    // Base position along straight line
+    let x = lerp(x1, y1, progress);
+    let y = lerp(y1, y2, progress);
+
+    // Wait, that's wrong. Let me fix:
+    x = lerp(x1, x2, progress);
+    y = lerp(y1, y2, progress);
+
+    // Get flow influence at this point
+    const gridI = (x - margin) / cellSize;
+    const gridJ = (y - margin) / cellSize;
+    const flowAngle = getFlowAngle(gridI, gridJ);
+
+    // Displacement perpendicular to the line direction
+    // Strongest in the middle, zero at endpoints
+    const displacement = sin(progress * PI) * params.flowStrength * cellSize * 0.3;
+
+    // Add flow-based curve
+    const perpAngle = flowAngle + HALF_PI;
+    x += cos(perpAngle) * displacement;
+    y += sin(perpAngle) * displacement;
+
+    // Add hand wobble
+    if (params.wobble > 0 && t > 0 && t < segments) {
+      x += random(-1, 1) * params.wobble * cellSize;
+      y += random(-1, 1) * params.wobble * cellSize;
+    }
+
+    vertex(x, y);
   }
-  line(x1, y1, x2, y2);
+  endShape();
+}
+
+// Bilinear interpolation of flow field
+function getFlowAngle(i, j) {
+  const i0 = floor(constrain(i, 0, params.gridSize - 1));
+  const j0 = floor(constrain(j, 0, params.gridSize - 1));
+  const i1 = min(i0 + 1, params.gridSize);
+  const j1 = min(j0 + 1, params.gridSize);
+
+  const fi = i - i0;
+  const fj = j - j0;
+
+  // Simple average of surrounding angles
+  const a00 = flowField[i0]?.[j0] || 0;
+  const a10 = flowField[i1]?.[j0] || 0;
+  const a01 = flowField[i0]?.[j1] || 0;
+  const a11 = flowField[i1]?.[j1] || 0;
+
+  const a0 = lerp(a00, a10, fi);
+  const a1 = lerp(a01, a11, fi);
+
+  return lerp(a0, a1, fj);
 }
 
 // ============================================
@@ -125,11 +203,13 @@ function setupControls() {
     });
   }
 
+  // Repurpose diagonalProb as density
   const diagSlider = document.getElementById('diagonalProb');
   const diagValue = document.getElementById('diagValue');
   if (diagSlider) {
+    diagSlider.value = params.density;
     diagSlider.addEventListener('input', (e) => {
-      params.diagonalProb = parseFloat(e.target.value);
+      params.density = parseFloat(e.target.value);
       if (diagValue) diagValue.textContent = (e.target.value * 100).toFixed(0) + '%';
       redraw();
     });
@@ -145,11 +225,13 @@ function setupControls() {
     });
   }
 
+  // Repurpose imperfection as flow strength
   const imperfectSlider = document.getElementById('imperfection');
   const imperfectValue = document.getElementById('imperfectValue');
   if (imperfectSlider) {
+    imperfectSlider.value = params.flowStrength;
     imperfectSlider.addEventListener('input', (e) => {
-      params.imperfection = parseFloat(e.target.value);
+      params.flowStrength = parseFloat(e.target.value);
       if (imperfectValue) imperfectValue.textContent = (e.target.value * 100).toFixed(0) + '%';
       redraw();
     });
@@ -197,44 +279,106 @@ function exportAsSVG() {
   randomSeed(params.seed);
   noiseSeed(params.seed);
 
-  const margin = 40;
   const gridSize = params.gridSize;
-  const cellW = (width - margin * 2) / gridSize;
-  const cellH = (height - margin * 2) / gridSize;
+  const localCellSize = (width - margin * 2) / gridSize;
+
+  // Rebuild flow field for export
+  const localFlowField = [];
+  for (let i = 0; i <= gridSize; i++) {
+    localFlowField[i] = [];
+    for (let j = 0; j <= gridSize; j++) {
+      const noiseVal = noise(i * 0.5, j * 0.5, params.seed * 0.01);
+      const baseAngle = floor(noiseVal * 8) * (PI / 4);
+      const deviation = (noise(i * 0.3, j * 0.3, 100) - 0.5) * params.flowStrength * PI;
+      localFlowField[i][j] = baseAngle + deviation;
+    }
+  }
+
+  function getLocalFlowAngle(i, j) {
+    const i0 = floor(constrain(i, 0, gridSize - 1));
+    const j0 = floor(constrain(j, 0, gridSize - 1));
+    const i1 = min(i0 + 1, gridSize);
+    const j1 = min(j0 + 1, gridSize);
+    const fi = i - i0;
+    const fj = j - j0;
+    const a00 = localFlowField[i0]?.[j0] || 0;
+    const a10 = localFlowField[i1]?.[j0] || 0;
+    const a01 = localFlowField[i0]?.[j1] || 0;
+    const a11 = localFlowField[i1]?.[j1] || 0;
+    const a0 = lerp(a00, a10, fi);
+    const a1 = lerp(a01, a11, fi);
+    return lerp(a0, a1, fj);
+  }
+
+  function generatePath(i1, j1, i2, j2) {
+    const x1 = margin + i1 * localCellSize;
+    const y1 = margin + j1 * localCellSize;
+    const x2 = margin + i2 * localCellSize;
+    const y2 = margin + j2 * localCellSize;
+    const segments = 8;
+
+    let points = [];
+    for (let t = 0; t <= segments; t++) {
+      const progress = t / segments;
+      let x = lerp(x1, x2, progress);
+      let y = lerp(y1, y2, progress);
+
+      const gridI = (x - margin) / localCellSize;
+      const gridJ = (y - margin) / localCellSize;
+      const flowAngle = getLocalFlowAngle(gridI, gridJ);
+
+      const displacement = sin(progress * PI) * params.flowStrength * localCellSize * 0.3;
+      const perpAngle = flowAngle + HALF_PI;
+      x += cos(perpAngle) * displacement;
+      y += sin(perpAngle) * displacement;
+
+      if (params.wobble > 0 && t > 0 && t < segments) {
+        x += random(-1, 1) * params.wobble * localCellSize;
+        y += random(-1, 1) * params.wobble * localCellSize;
+      }
+
+      points.push({x, y});
+    }
+
+    return 'M ' + points.map(p => `${p.x.toFixed(2)} ${p.y.toFixed(2)}`).join(' L ');
+  }
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="${params.bgColor}"/>
-  <g stroke="${params.fgColor}" stroke-width="${params.lineWeight}" stroke-linecap="square" stroke-linejoin="miter" fill="none">
+  <g stroke="${params.fgColor}" stroke-width="${params.lineWeight}" stroke-linecap="round" stroke-linejoin="round" fill="none">
 `;
 
-  // Horizontals
+  // Horizontal connections
   for (let j = 0; j <= gridSize; j++) {
-    const y = margin + j * cellH;
-    svg += `    <line x1="${margin}" y1="${y}" x2="${width - margin}" y2="${y}"/>\n`;
+    for (let i = 0; i < gridSize; i++) {
+      if (random() < params.density) {
+        svg += `    <path d="${generatePath(i, j, i + 1, j)}"/>\n`;
+      }
+    }
   }
 
-  // Verticals
+  // Vertical connections
   for (let i = 0; i <= gridSize; i++) {
-    const x = margin + i * cellW;
-    svg += `    <line x1="${x}" y1="${margin}" x2="${x}" y2="${height - margin}"/>\n`;
+    for (let j = 0; j < gridSize; j++) {
+      if (random() < params.density) {
+        svg += `    <path d="${generatePath(i, j, i, j + 1)}"/>\n`;
+      }
+    }
   }
 
   // Diagonals
   for (let i = 0; i < gridSize; i++) {
     for (let j = 0; j < gridSize; j++) {
-      const x = margin + i * cellW;
-      const y = margin + j * cellH;
-
       const n1 = noise(i * 0.5, j * 0.5, 0);
       const n2 = noise(i * 0.5, j * 0.5, 100);
 
-      if (n1 < params.diagonalProb) {
-        svg += `    <line x1="${x}" y1="${y}" x2="${x + cellW}" y2="${y + cellH}"/>\n`;
+      if (n1 < params.density * 0.8) {
+        svg += `    <path d="${generatePath(i, j, i + 1, j + 1)}"/>\n`;
       }
 
-      if (n2 < params.diagonalProb) {
-        svg += `    <line x1="${x + cellW}" y1="${y}" x2="${x}" y2="${y + cellH}"/>\n`;
+      if (n2 < params.density * 0.8) {
+        svg += `    <path d="${generatePath(i + 1, j, i, j + 1)}"/>\n`;
       }
     }
   }
