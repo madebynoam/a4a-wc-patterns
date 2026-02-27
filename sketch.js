@@ -165,31 +165,24 @@ function draw() {
   }
 }
 
-// Art Deco sunburst - rays from bottom-center grid point upward
+// Art Deco sunburst - rays from bottom-center to grid points
 function drawSunburst(cx, cy, gridSize) {
-  const bottomCenterI = floor(gridSize / 2);
-  const startX = margin + bottomCenterI * cellSize;
+  const centerI = floor(gridSize / 2);
+  const startX = margin + centerI * cellSize;
   const startY = margin + gridSize * cellSize;
 
-  const numRays = floor(5 + params.sunburst * 12); // 5-17 rays
+  // Spread controls how many columns out from center to target (0 = just center, 1 = full width)
+  const maxSpreadCols = floor(params.sunburstSpread * centerI) + 1;
 
-  // Spread controls the angle range: 0 = tight (30°), 1 = wide (150°)
-  const minSpread = PI / 6;  // 30 degrees total
-  const maxSpread = PI * 5/6; // 150 degrees total
-  const totalSpread = minSpread + params.sunburstSpread * (maxSpread - minSpread);
+  // Draw rays to grid points along the top row
+  for (let i = -maxSpreadCols; i <= maxSpreadCols; i++) {
+    const targetI = centerI + i;
+    if (targetI < 0 || targetI > gridSize) continue;
 
-  const startAngle = -PI/2 - totalSpread/2; // centered on straight up
-  const endAngle = -PI/2 + totalSpread/2;
+    const targetX = margin + targetI * cellSize;
+    const targetY = margin; // Top row
 
-  for (let i = 0; i < numRays; i++) {
-    const angle = startAngle + (i / (numRays - 1)) * totalSpread;
-
-    // Ray length to edge of grid
-    const rayLength = (height - margin * 2);
-    const targetX = startX + cos(angle) * rayLength;
-    const targetY = startY + sin(angle) * rayLength;
-
-    drawFlowingLinePixels(startX, startY, targetX, targetY);
+    line(startX, startY, targetX, targetY);
   }
 }
 
