@@ -1,79 +1,75 @@
-# Jali Line Grid Machine
+# Islamic Jali Pattern Machine
 
 ## What This Is
 
-A generative machine that creates jali-style LINE GRID patterns. Each seed produces a unique lattice of intersecting lines.
+A generative machine that creates authentic Islamic geometric patterns using the Hankin method. Each seed produces a unique star pattern.
 
-## Core Principle
+## Core Method: Hankin's Polygons-in-Contact
 
-**Lines form the lattice.** The stone/metal is the LINES. The voids are the negative space between them. This is stroke-based, not fill-based.
+This is how real Islamic geometric patterns are constructed:
 
-## Structure
+1. **Base polygon grid** - Squares (8-point), hexagons (6-point), or dodecagons (12-point)
+2. **Edge midpoints** - Find the midpoint of each polygon edge
+3. **Contact angle rays** - From each midpoint, draw rays inward at the contact angle
+4. **Ray intersections** - Where adjacent rays meet = star vertices
+5. **Connect points** - Lines form the characteristic star patterns
 
-### Grid Points
-- Regular grid of points across canvas
-- Points can drift slightly with imperfection enabled
+## Star Types
 
-### Connections
-- Horizontal lines between adjacent points
-- Vertical lines between adjacent points
-- Diagonal lines (optional) - both directions
-- Not all connections are drawn - controlled by probability
+### 6-Point Star (Hexagonal Grid)
+- Based on hexagonal tiling
+- 60° rotational symmetry
+- Common in Moroccan/North African patterns
 
-### Decorations
-- Star nodes at some intersections
-- Radiating lines from center point
-- Variable ray count (4-8)
+### 8-Point Star (Square Grid)
+- Based on square tiling
+- 45° rotational symmetry
+- Most common Islamic pattern (Gateway of India, etc.)
+
+### 12-Point Star (Complex)
+- Layered construction
+- More intricate detail
+- Often used as focal points
+
+## Contact Angle
+
+The contact angle (35°-75°) controls star sharpness:
+- **Low angle (35-45°)** = Sharp, pointy stars
+- **Medium angle (50-60°)** = Classic proportions
+- **High angle (65-75°)** = Soft, rounded stars
 
 ## Parameters
 
 ### Seed
-- Determines all random choices
-- Same seed = same pattern (always)
+- Determines star type and contact angle
+- Same seed = same pattern
 
-### Grid Size
-- Number of divisions (3-12)
-- More divisions = denser pattern
+### Grid Density
+- How many star repeats (2-8)
+- More = denser pattern
 
-### Connection Density
-- Probability of drawing each possible line (0.3-1.0)
-- Lower = more sparse/broken
-- Higher = more complete grid
-
-### Diagonals
-- Toggle on/off
-- Adds complexity and Islamic geometry feel
-
-### Star Decorations
-- Probability of star at each node (0-60%)
-- Adds focal points and detail
+### Line Density
+- Probability of drawing each line (50-100%)
+- Lower = some lines omitted for variation
 
 ### Line Weight
-- Stroke thickness (1-8px)
+- Stroke thickness
 - Thicker = bolder, pin-ready
-- Thinner = delicate, detailed
 
 ### Imperfection
-- Human hand simulation (0-100%)
-- 0% = perfect geometry (pin-ready)
-- 50%+ = hand-drawn feel (tote-ready)
-- Affects: point positions, line endpoints
+- Human hand simulation
+- 0% = perfect (pin)
+- Higher = hand-drawn feel (tote)
 
 ## Output
 
-### SVG Export
-- Pure vector lines
-- Clean for production (laser cut, enamel pin, screen print)
+- **SVG** - Clean vectors for production
+- **PNG** - Raster for preview
 
-### PNG Export
-- Raster image
-- For preview/sharing
+## What Makes It Islamic
 
-## What This Is NOT
-
-- Not filled shapes
-- Not blobs or cells
-- Not organic/flowing
-- Not complex Islamic stars (yet)
-
-It's a **line grid machine** - the foundation of jali patterns.
+- Rotational symmetry around star centers
+- Interlocking stars that tessellate
+- Secondary shapes in negative space (kites, hexagons)
+- Mathematical precision in angles
+- Based on actual historical construction methods

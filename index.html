@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Jali Line Machine</title>
+  <title>Jali Pattern Machine</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -45,7 +45,6 @@
       -webkit-appearance: none;
       background: #444;
       border-radius: 2px;
-      outline: none;
     }
 
     input[type="range"]::-webkit-slider-thumb {
@@ -57,7 +56,7 @@
       cursor: pointer;
     }
 
-    input[type="number"] {
+    input[type="number"], select {
       width: 100%;
       padding: 8px 12px;
       background: #333;
@@ -65,29 +64,14 @@
       color: #fff;
       border-radius: 4px;
       font-size: 14px;
-      font-family: monospace;
     }
 
-    input[type="checkbox"] {
-      width: 18px;
-      height: 18px;
-      margin-right: 8px;
-      cursor: pointer;
-    }
-
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      font-size: 13px;
-      color: #ccc;
-      cursor: pointer;
-    }
+    select { cursor: pointer; }
 
     .value-display {
       font-size: 12px;
       color: #ccc;
       margin-top: 4px;
-      font-variant-numeric: tabular-nums;
     }
 
     button {
@@ -101,18 +85,10 @@
       font-weight: 600;
       cursor: pointer;
       margin-bottom: 8px;
-      transition: background 0.15s;
     }
 
     button:hover { background: #e0e0e0; }
-
-    button.secondary {
-      background: #333;
-      color: #fff;
-      border: 1px solid #444;
-      font-weight: 500;
-    }
-
+    button.secondary { background: #333; color: #fff; border: 1px solid #444; }
     button.secondary:hover { background: #444; }
 
     .divider { height: 1px; background: #333; margin: 24px 0; }
@@ -135,26 +111,12 @@
       border-radius: 4px;
       cursor: pointer;
       border: 2px solid transparent;
-      transition: border-color 0.15s;
     }
 
     .color-swatch:hover, .color-swatch.active { border-color: #fff; }
 
-    .shortcuts {
-      font-size: 10px;
-      color: #666;
-      margin-top: 16px;
-      line-height: 1.6;
-    }
-
-    .shortcuts kbd {
-      display: inline-block;
-      padding: 2px 6px;
-      background: #333;
-      border-radius: 3px;
-      font-family: inherit;
-      margin-right: 4px;
-    }
+    .shortcuts { font-size: 10px; color: #666; margin-top: 16px; line-height: 1.6; }
+    .shortcuts kbd { padding: 2px 6px; background: #333; border-radius: 3px; margin-right: 4px; }
 
     .seed-row { display: flex; gap: 8px; }
     .seed-row input { flex: 1; }
@@ -164,7 +126,7 @@
 <body>
   <div id="controls">
     <h1>Jali Machine</h1>
-    <p class="subtitle">Line grid pattern generator</p>
+    <p class="subtitle">Islamic geometric patterns</p>
 
     <div class="control-group">
       <label>Seed</label>
@@ -177,34 +139,36 @@
     <div class="divider"></div>
 
     <div class="control-group">
-      <label>Grid Size</label>
-      <input type="range" id="gridSize" min="3" max="12" value="6">
-      <div class="value-display"><span id="gridValue">6</span> x <span id="gridValue">6</span></div>
+      <label>Star Type</label>
+      <select id="starType">
+        <option value="6">6-Point Star (Hexagonal)</option>
+        <option value="8" selected>8-Point Star (Square)</option>
+        <option value="12">12-Point Star (Complex)</option>
+      </select>
     </div>
 
     <div class="control-group">
-      <label>Connection Density</label>
-      <input type="range" id="connectionProb" min="0.3" max="1" step="0.05" value="0.7">
-      <div class="value-display"><span id="connValue">70%</span></div>
+      <label>Contact Angle</label>
+      <input type="range" id="contactAngle" min="35" max="75" value="55">
+      <div class="value-display"><span id="angleValue">55</span>° (controls star sharpness)</div>
     </div>
 
     <div class="control-group">
-      <label class="checkbox-label">
-        <input type="checkbox" id="diagonals" checked>
-        Include Diagonals
-      </label>
+      <label>Grid Density</label>
+      <input type="range" id="gridSize" min="2" max="8" value="4">
+      <div class="value-display"><span id="gridValue">4</span> repeats</div>
     </div>
 
     <div class="control-group">
-      <label>Star Decorations</label>
-      <input type="range" id="starNodes" min="0" max="0.6" step="0.05" value="0.3">
-      <div class="value-display"><span id="starValue">30%</span></div>
+      <label>Line Density</label>
+      <input type="range" id="connectionProb" min="0.5" max="1" step="0.05" value="1">
+      <div class="value-display"><span id="connValue">100%</span></div>
     </div>
 
     <div class="control-group">
       <label>Line Weight</label>
-      <input type="range" id="lineWeight" min="1" max="8" step="0.5" value="3">
-      <div class="value-display"><span id="weightValue">3px</span></div>
+      <input type="range" id="lineWeight" min="1" max="6" step="0.5" value="2.5">
+      <div class="value-display"><span id="weightValue">2.5px</span></div>
     </div>
 
     <div class="divider"></div>

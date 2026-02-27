@@ -1,20 +1,21 @@
-// Jali Line Grid Machine
-// Lines form the lattice, voids are negative space
+// Islamic Jali Pattern Machine
+// Hankin's Polygons-in-Contact method for authentic geometric patterns
 
 let params = {
   seed: 42,
-  gridSize: 6,           // Number of grid divisions
-  connectionProb: 0.7,   // Probability of drawing a connection
-  diagonals: true,       // Include diagonal lines
-  starNodes: 0.3,        // Probability of star decoration at nodes
-  lineWeight: 3,
-  imperfection: 0,       // Human hand amount
+  starType: 8,           // 6, 8, or 12 pointed stars
+  contactAngle: 55,      // 35-75 degrees - controls star sharpness
+  gridSize: 4,           // How many repeats
+  connectionProb: 1.0,   // 1 = full pattern, lower = some lines omitted
+  lineWeight: 2.5,
+  imperfection: 0,
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
 
 let canvas;
 let hand = null;
+let lines = []; // Store lines for SVG export
 
 function setup() {
   const container = document.getElementById('canvas-container');
@@ -28,8 +29,31 @@ function setup() {
 }
 
 function generate() {
+  randomSeed(params.seed);
+  noiseSeed(params.seed);
   hand = createHand(params.seed);
+
+  // Randomly vary parameters based on seed
+  const starTypes = [6, 8, 8, 8, 12]; // Weighted toward 8
+  params.starType = starTypes[floor(random(starTypes.length))];
+  params.contactAngle = floor(random(40, 70));
+
+  // Update UI to show generated values
+  updateUIFromParams();
+
   redraw();
+}
+
+function updateUIFromParams() {
+  const starSelect = document.getElementById('starType');
+  if (starSelect) starSelect.value = params.starType;
+
+  const angleSlider = document.getElementById('contactAngle');
+  const angleValue = document.getElementById('angleValue');
+  if (angleSlider) {
+    angleSlider.value = params.contactAngle;
+    if (angleValue) angleValue.textContent = params.contactAngle + '°';
+  }
 }
 
 function draw() {
@@ -38,111 +62,200 @@ function draw() {
 
   background(params.bgColor);
 
-  // Setup stroke
   stroke(params.fgColor);
   strokeWeight(params.lineWeight);
   strokeCap(ROUND);
   strokeJoin(ROUND);
   noFill();
 
-  const margin = 40;
-  const gridSize = params.gridSize;
-  const cellW = (width - margin * 2) / gridSize;
-  const cellH = (height - margin * 2) / gridSize;
+  lines = []; // Reset for SVG export
 
-  // Generate grid points
-  const points = [];
-  for (let i = 0; i <= gridSize; i++) {
-    points[i] = [];
-    for (let j = 0; j <= gridSize; j++) {
-      let x = margin + i * cellW;
-      let y = margin + j * cellH;
+  push();
+  translate(width / 2, height / 2);
 
-      // Apply imperfection
-      if (params.imperfection > 0) {
-        const drift = params.imperfection * cellW * 0.15;
-        x += applyHand(0, noise(i * 0.5, j * 0.5) * drift, 'position');
-        y += applyHand(0, noise(i * 0.5 + 100, j * 0.5) * drift, 'position');
-      }
-
-      points[i][j] = { x, y };
-    }
+  // Draw the Islamic pattern
+  if (params.starType === 6) {
+    drawHexagonalPattern();
+  } else if (params.starType === 12) {
+    drawTwelveFoldPattern();
+  } else {
+    drawSquarePattern();
   }
 
-  // Draw horizontal lines
-  for (let j = 0; j <= gridSize; j++) {
-    for (let i = 0; i < gridSize; i++) {
-      if (shouldConnect(i, j, 'h')) {
-        drawJaliLine(points[i][j], points[i + 1][j]);
-      }
-    }
-  }
-
-  // Draw vertical lines
-  for (let i = 0; i <= gridSize; i++) {
-    for (let j = 0; j < gridSize; j++) {
-      if (shouldConnect(i, j, 'v')) {
-        drawJaliLine(points[i][j], points[i][j + 1]);
-      }
-    }
-  }
-
-  // Draw diagonal lines (if enabled)
-  if (params.diagonals) {
-    for (let i = 0; i < gridSize; i++) {
-      for (let j = 0; j < gridSize; j++) {
-        // Diagonal: top-left to bottom-right
-        if (shouldConnect(i, j, 'd1')) {
-          drawJaliLine(points[i][j], points[i + 1][j + 1]);
-        }
-        // Diagonal: top-right to bottom-left
-        if (shouldConnect(i, j, 'd2')) {
-          drawJaliLine(points[i + 1][j], points[i][j + 1]);
-        }
-      }
-    }
-  }
-
-  // Draw star decorations at some nodes
-  for (let i = 0; i <= gridSize; i++) {
-    for (let j = 0; j <= gridSize; j++) {
-      if (shouldDrawStar(i, j)) {
-        drawStarNode(points[i][j], cellW * 0.25);
-      }
-    }
-  }
+  pop();
 
   // Draw border
   strokeWeight(params.lineWeight * 1.5);
-  rect(margin * 0.5, margin * 0.5, width - margin, height - margin);
+  rect(10, 10, width - 20, height - 20);
 }
 
 // ============================================
-// CONNECTION LOGIC
+// 8-POINT STAR (Square Grid)
 // ============================================
 
-function shouldConnect(i, j, type) {
-  // Use noise for consistent but varied decisions
-  const n = noise(i * 0.3 + j * 0.7, j * 0.3, type.charCodeAt(0) * 0.1);
+function drawSquarePattern() {
+  const s = min(width, height) * 0.85 / params.gridSize;
+  const grid = params.gridSize;
+  const halfGrid = (grid - 1) / 2;
+  const contactAngle = radians(params.contactAngle);
+
+  for (let i = 0; i < grid; i++) {
+    for (let j = 0; j < grid; j++) {
+      const cx = (i - halfGrid) * s;
+      const cy = (j - halfGrid) * s;
+
+      hankinStar(cx, cy, s * 0.45, 8, contactAngle);
+    }
+  }
+}
+
+// ============================================
+// 6-POINT STAR (Hexagonal Grid)
+// ============================================
+
+function drawHexagonalPattern() {
+  const s = min(width, height) * 0.85 / params.gridSize;
+  const grid = params.gridSize;
+  const contactAngle = radians(params.contactAngle);
+
+  const hSpace = s;
+  const vSpace = s * sqrt(3) / 2;
+  const halfGrid = (grid - 1) / 2;
+
+  for (let j = 0; j < grid + 1; j++) {
+    for (let i = 0; i < grid + 1; i++) {
+      const offset = (j % 2) * (hSpace / 2);
+      const cx = (i - halfGrid) * hSpace + offset - hSpace / 4;
+      const cy = (j - halfGrid) * vSpace;
+
+      hankinStar(cx, cy, s * 0.38, 6, contactAngle);
+    }
+  }
+}
+
+// ============================================
+// 12-POINT STAR (Complex)
+// ============================================
+
+function drawTwelveFoldPattern() {
+  const s = min(width, height) * 0.85 / params.gridSize;
+  const grid = params.gridSize;
+  const halfGrid = (grid - 1) / 2;
+  const contactAngle = radians(params.contactAngle);
+
+  for (let i = 0; i < grid; i++) {
+    for (let j = 0; j < grid; j++) {
+      const cx = (i - halfGrid) * s;
+      const cy = (j - halfGrid) * s;
+
+      // 12-fold with inner detail
+      hankinStar(cx, cy, s * 0.45, 12, contactAngle);
+      hankinStar(cx, cy, s * 0.25, 12, contactAngle * 0.7);
+    }
+  }
+}
+
+// ============================================
+// HANKIN STAR CONSTRUCTION
+// ============================================
+
+function hankinStar(cx, cy, r, sides, contactAngle) {
+  // Clamp contact angle
+  contactAngle = constrain(contactAngle, radians(35), radians(75));
+
+  // Get polygon vertices
+  const verts = [];
+  for (let i = 0; i < sides; i++) {
+    const a = (TWO_PI / sides) * i - HALF_PI;
+    verts.push({ x: cx + cos(a) * r, y: cy + sin(a) * r });
+  }
+
+  // Get edge midpoints with perpendicular angles
+  const mids = [];
+  for (let i = 0; i < sides; i++) {
+    const v1 = verts[i];
+    const v2 = verts[(i + 1) % sides];
+    const mx = (v1.x + v2.x) / 2;
+    const my = (v1.y + v2.y) / 2;
+    const edgeAngle = atan2(v2.y - v1.y, v2.x - v1.x);
+    const perpAngle = edgeAngle - HALF_PI;
+    mids.push({ x: mx, y: my, perp: perpAngle });
+  }
+
+  const maxDist = r * 2;
+
+  // For each edge, compute rays and find intersections
+  for (let i = 0; i < sides; i++) {
+    const m = mids[i];
+    const mNext = mids[(i + 1) % sides];
+
+    // Ray from current midpoint (perp + contactAngle)
+    const ray1Angle = m.perp + contactAngle;
+    // Ray from next midpoint (perp - contactAngle)
+    const ray2Angle = mNext.perp - contactAngle;
+
+    const intersection = rayIntersection(
+      m.x, m.y, ray1Angle,
+      mNext.x, mNext.y, ray2Angle
+    );
+
+    if (intersection) {
+      const d1 = dist(m.x, m.y, intersection.x, intersection.y);
+      const d2 = dist(mNext.x, mNext.y, intersection.x, intersection.y);
+
+      if (d1 < maxDist && d2 < maxDist) {
+        // Check connection probability
+        if (shouldDraw(i, m.x, m.y)) {
+          drawJaliLine(m.x, m.y, intersection.x, intersection.y);
+        }
+        if (shouldDraw(i + sides, mNext.x, mNext.y)) {
+          drawJaliLine(intersection.x, intersection.y, mNext.x, mNext.y);
+        }
+      } else {
+        // Fallback for extreme angles
+        const shortLen = r * 0.4;
+        if (shouldDraw(i, m.x, m.y)) {
+          drawJaliLine(m.x, m.y, m.x + cos(ray1Angle) * shortLen, m.y + sin(ray1Angle) * shortLen);
+        }
+        if (shouldDraw(i + sides, mNext.x, mNext.y)) {
+          drawJaliLine(mNext.x, mNext.y, mNext.x + cos(ray2Angle) * shortLen, mNext.y + sin(ray2Angle) * shortLen);
+        }
+      }
+    }
+  }
+}
+
+function rayIntersection(x1, y1, angle1, x2, y2, angle2) {
+  const dx1 = cos(angle1);
+  const dy1 = sin(angle1);
+  const dx2 = cos(angle2);
+  const dy2 = sin(angle2);
+
+  const denom = dx1 * dy2 - dy1 * dx2;
+  if (abs(denom) < 0.0001) return null;
+
+  const t = ((x2 - x1) * dy2 - (y2 - y1) * dx2) / denom;
+
+  if (t > 0) {
+    return { x: x1 + dx1 * t, y: y1 + dy1 * t };
+  }
+  return null;
+}
+
+function shouldDraw(index, x, y) {
+  if (params.connectionProb >= 1) return true;
+  const n = noise(x * 0.01, y * 0.01, index * 0.1);
   return n < params.connectionProb;
 }
 
-function shouldDrawStar(i, j) {
-  // Stars at nodes based on noise
-  const n = noise(i * 0.4, j * 0.4, 500);
-  return n < params.starNodes;
-}
-
 // ============================================
-// LINE DRAWING
+// LINE DRAWING WITH IMPERFECTION
 // ============================================
 
-function drawJaliLine(p1, p2) {
-  let x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
-
-  // Apply imperfection to endpoints
+function drawJaliLine(x1, y1, x2, y2) {
+  // Apply imperfection
   if (params.imperfection > 0) {
-    const wobble = params.imperfection * 2;
+    const wobble = params.imperfection * 3;
     x1 += random(-wobble, wobble);
     y1 += random(-wobble, wobble);
     x2 += random(-wobble, wobble);
@@ -150,30 +263,7 @@ function drawJaliLine(p1, p2) {
   }
 
   line(x1, y1, x2, y2);
-}
-
-function drawStarNode(p, size) {
-  const rays = floor(random(4, 9)); // 4 to 8 rays
-  const innerR = size * 0.3;
-  const outerR = size;
-
-  push();
-  translate(p.x, p.y);
-
-  if (params.imperfection > 0) {
-    rotate(random(-0.1, 0.1) * params.imperfection);
-  }
-
-  for (let i = 0; i < rays; i++) {
-    const angle = (TWO_PI / rays) * i - HALF_PI;
-    const x1 = cos(angle) * innerR;
-    const y1 = sin(angle) * innerR;
-    const x2 = cos(angle) * outerR;
-    const y2 = sin(angle) * outerR;
-    line(x1, y1, x2, y2);
-  }
-
-  pop();
+  lines.push({ x1, y1, x2, y2 });
 }
 
 // ============================================
@@ -183,24 +273,9 @@ function drawStarNode(p, size) {
 function createHand(seed) {
   randomSeed(seed * 7);
   return {
-    driftAngle: random(TWO_PI),
-    driftAmount: random(0.5, 1.5),
-    weightVar: random(0.9, 1.1)
+    drift: random(-1, 1),
+    pressure: random(0.9, 1.1)
   };
-}
-
-function applyHand(value, variation, type) {
-  if (params.imperfection === 0) return value;
-
-  const amount = params.imperfection;
-  const h = hand;
-
-  if (type === 'position') {
-    const drift = variation * h.driftAmount * amount;
-    return value + cos(h.driftAngle + variation) * drift;
-  }
-
-  return value;
 }
 
 // ============================================
@@ -218,13 +293,33 @@ function setupControls() {
     });
   }
 
-  // Generate button
+  // Generate
   const generateBtn = document.getElementById('generate');
   if (generateBtn) {
     generateBtn.addEventListener('click', () => {
       params.seed = floor(random(100000));
       document.getElementById('seed').value = params.seed;
       generate();
+    });
+  }
+
+  // Star type
+  const starSelect = document.getElementById('starType');
+  if (starSelect) {
+    starSelect.addEventListener('change', (e) => {
+      params.starType = parseInt(e.target.value);
+      redraw();
+    });
+  }
+
+  // Contact angle
+  const angleSlider = document.getElementById('contactAngle');
+  const angleValue = document.getElementById('angleValue');
+  if (angleSlider) {
+    angleSlider.addEventListener('input', (e) => {
+      params.contactAngle = parseInt(e.target.value);
+      if (angleValue) angleValue.textContent = e.target.value + '°';
+      redraw();
     });
   }
 
@@ -235,7 +330,7 @@ function setupControls() {
     gridSlider.addEventListener('input', (e) => {
       params.gridSize = parseInt(e.target.value);
       if (gridValue) gridValue.textContent = e.target.value;
-      generate();
+      redraw();
     });
   }
 
@@ -246,27 +341,7 @@ function setupControls() {
     connSlider.addEventListener('input', (e) => {
       params.connectionProb = parseFloat(e.target.value);
       if (connValue) connValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      generate();
-    });
-  }
-
-  // Diagonals toggle
-  const diagToggle = document.getElementById('diagonals');
-  if (diagToggle) {
-    diagToggle.addEventListener('change', (e) => {
-      params.diagonals = e.target.checked;
-      generate();
-    });
-  }
-
-  // Star nodes
-  const starSlider = document.getElementById('starNodes');
-  const starValue = document.getElementById('starValue');
-  if (starSlider) {
-    starSlider.addEventListener('input', (e) => {
-      params.starNodes = parseFloat(e.target.value);
-      if (starValue) starValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      generate();
+      redraw();
     });
   }
 
@@ -277,7 +352,7 @@ function setupControls() {
     weightSlider.addEventListener('input', (e) => {
       params.lineWeight = parseFloat(e.target.value);
       if (weightValue) weightValue.textContent = e.target.value + 'px';
-      generate();
+      redraw();
     });
   }
 
@@ -288,38 +363,31 @@ function setupControls() {
     imperfectSlider.addEventListener('input', (e) => {
       params.imperfection = parseFloat(e.target.value);
       if (imperfectValue) imperfectValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      generate();
+      redraw();
     });
   }
 
-  // Color swatches
+  // Colors
   document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
       document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
       e.target.classList.add('active');
       params.bgColor = e.target.dataset.bg;
       params.fgColor = e.target.dataset.fg;
-      generate();
+      redraw();
     });
   });
 
   // Export
-  const exportPNG = document.getElementById('exportPNG');
-  if (exportPNG) {
-    exportPNG.addEventListener('click', () => {
-      saveCanvas('jali-' + params.seed, 'png');
-    });
-  }
+  document.getElementById('exportPNG')?.addEventListener('click', () => {
+    saveCanvas('jali-' + params.seed, 'png');
+  });
 
-  const exportSVG = document.getElementById('exportSVG');
-  if (exportSVG) {
-    exportSVG.addEventListener('click', exportAsSVG);
-  }
+  document.getElementById('exportSVG')?.addEventListener('click', exportAsSVG);
 
-  // Keyboard shortcuts
+  // Keyboard
   document.addEventListener('keydown', (e) => {
-    if (e.target.tagName === 'INPUT') return;
-
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
     switch(e.key.toLowerCase()) {
       case ' ':
       case 'g':
@@ -341,117 +409,36 @@ function setupControls() {
 // ============================================
 
 function exportAsSVG() {
+  // Regenerate to capture lines
   randomSeed(params.seed);
   noiseSeed(params.seed);
+  lines = [];
 
-  const margin = 40;
-  const gridSize = params.gridSize;
-  const cellW = (width - margin * 2) / gridSize;
-  const cellH = (height - margin * 2) / gridSize;
-
-  // Generate points
-  const points = [];
-  for (let i = 0; i <= gridSize; i++) {
-    points[i] = [];
-    for (let j = 0; j <= gridSize; j++) {
-      let x = margin + i * cellW;
-      let y = margin + j * cellH;
-      if (params.imperfection > 0) {
-        const drift = params.imperfection * cellW * 0.15;
-        x += applyHand(0, noise(i * 0.5, j * 0.5) * drift, 'position');
-        y += applyHand(0, noise(i * 0.5 + 100, j * 0.5) * drift, 'position');
-      }
-      points[i][j] = { x, y };
-    }
+  push();
+  translate(width / 2, height / 2);
+  if (params.starType === 6) {
+    drawHexagonalPattern();
+  } else if (params.starType === 12) {
+    drawTwelveFoldPattern();
+  } else {
+    drawSquarePattern();
   }
+  pop();
 
   let svg = `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
   <rect width="100%" height="100%" fill="${params.bgColor}"/>
-  <g stroke="${params.fgColor}" stroke-width="${params.lineWeight}" stroke-linecap="round" stroke-linejoin="round" fill="none">
+  <g stroke="${params.fgColor}" stroke-width="${params.lineWeight}" stroke-linecap="round" stroke-linejoin="round" fill="none" transform="translate(${width/2},${height/2})">
 `;
 
-  // Horizontal lines
-  for (let j = 0; j <= gridSize; j++) {
-    for (let i = 0; i < gridSize; i++) {
-      if (shouldConnect(i, j, 'h')) {
-        svg += svgLine(points[i][j], points[i + 1][j]);
-      }
-    }
+  for (const l of lines) {
+    svg += `    <line x1="${l.x1.toFixed(2)}" y1="${l.y1.toFixed(2)}" x2="${l.x2.toFixed(2)}" y2="${l.y2.toFixed(2)}"/>\n`;
   }
-
-  // Vertical lines
-  for (let i = 0; i <= gridSize; i++) {
-    for (let j = 0; j < gridSize; j++) {
-      if (shouldConnect(i, j, 'v')) {
-        svg += svgLine(points[i][j], points[i][j + 1]);
-      }
-    }
-  }
-
-  // Diagonals
-  if (params.diagonals) {
-    for (let i = 0; i < gridSize; i++) {
-      for (let j = 0; j < gridSize; j++) {
-        if (shouldConnect(i, j, 'd1')) {
-          svg += svgLine(points[i][j], points[i + 1][j + 1]);
-        }
-        if (shouldConnect(i, j, 'd2')) {
-          svg += svgLine(points[i + 1][j], points[i][j + 1]);
-        }
-      }
-    }
-  }
-
-  // Star nodes
-  for (let i = 0; i <= gridSize; i++) {
-    for (let j = 0; j <= gridSize; j++) {
-      if (shouldDrawStar(i, j)) {
-        svg += svgStar(points[i][j], cellW * 0.25);
-      }
-    }
-  }
-
-  // Border
-  svg += `    <rect x="${margin * 0.5}" y="${margin * 0.5}" width="${width - margin}" height="${height - margin}" stroke-width="${params.lineWeight * 1.5}"/>
-`;
 
   svg += `  </g>
+  <rect x="10" y="10" width="${width-20}" height="${height-20}" fill="none" stroke="${params.fgColor}" stroke-width="${params.lineWeight * 1.5}"/>
 </svg>`;
 
-  downloadSVG(svg);
-}
-
-function svgLine(p1, p2) {
-  let x1 = p1.x, y1 = p1.y, x2 = p2.x, y2 = p2.y;
-  if (params.imperfection > 0) {
-    const wobble = params.imperfection * 2;
-    x1 += random(-wobble, wobble);
-    y1 += random(-wobble, wobble);
-    x2 += random(-wobble, wobble);
-    y2 += random(-wobble, wobble);
-  }
-  return `    <line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}"/>\n`;
-}
-
-function svgStar(p, size) {
-  const rays = floor(random(4, 9));
-  const innerR = size * 0.3;
-  const outerR = size;
-
-  let lines = '';
-  for (let i = 0; i < rays; i++) {
-    const angle = (TWO_PI / rays) * i - HALF_PI;
-    const x1 = p.x + cos(angle) * innerR;
-    const y1 = p.y + sin(angle) * innerR;
-    const x2 = p.x + cos(angle) * outerR;
-    const y2 = p.y + sin(angle) * outerR;
-    lines += `    <line x1="${x1.toFixed(2)}" y1="${y1.toFixed(2)}" x2="${x2.toFixed(2)}" y2="${y2.toFixed(2)}"/>\n`;
-  }
-  return lines;
-}
-
-function downloadSVG(svg) {
   const blob = new Blob([svg], { type: 'image/svg+xml' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -467,5 +454,5 @@ function windowResized() {
   const container = document.getElementById('canvas-container');
   const size = Math.min(container.offsetWidth - 80, container.offsetHeight - 80, 600);
   resizeCanvas(size, size);
-  generate();
+  redraw();
 }
