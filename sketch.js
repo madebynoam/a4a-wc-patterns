@@ -15,6 +15,7 @@ let params = {
   sunburstSpread: 0.5,  // How spread out the rays are (0 = tight, 1 = wide)
   fountain: 0,          // Frozen fountain (0 = none, 1 = full)
   sideFountains: false, // Add smaller side arches (Gateway of India style)
+  sideFountainHeight: 0.5, // Height of side fountains (0-1, relative to main)
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
@@ -198,30 +199,34 @@ function drawFrozenFountain(cx, cy, gridSize) {
   const maxLayers = floor(1 + params.fountain * 2); // 1-3 layers (narrower)
   const bottomY = margin + gridSize * cellSize;
 
-  // Draw main central fountain
-  drawFountainAt(centerI, maxLayers, bottomY, gridSize, true);
+  // Draw main central fountain (full height)
+  drawFountainAt(centerI, maxLayers, bottomY, gridSize, true, gridSize);
 
   // Side fountains (Gateway of India style)
   if (params.sideFountains && maxLayers >= 1) {
-    const mainWidth = maxLayers + 1; // Gap after main fountain
     const sideWidth = 1; // Side fountains are single-layer
+    // Height based on slider (aligned to grid rows)
+    const sideMaxRows = max(1, floor(gridSize * params.sideFountainHeight));
 
     // Left side fountain - position it at grid edge
     const leftCenterI = 1;
     if (leftCenterI >= 1) {
-      drawFountainAt(leftCenterI, sideWidth, bottomY, gridSize, false);
+      drawFountainAt(leftCenterI, sideWidth, bottomY, gridSize, false, sideMaxRows);
     }
 
     // Right side fountain - position it at grid edge
     const rightCenterI = gridSize - 1;
     if (rightCenterI <= gridSize - 1) {
-      drawFountainAt(rightCenterI, sideWidth, bottomY, gridSize, false);
+      drawFountainAt(rightCenterI, sideWidth, bottomY, gridSize, false, sideMaxRows);
     }
   }
 }
 
 // Draw a single fountain at a given center position
-function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine) {
+function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine, maxHeight) {
+  // maxHeight = how many rows from bottom the fountain can reach
+  const topLimit = margin + (gridSize - maxHeight) * cellSize;
+
   for (let layer = 1; layer <= maxLayers; layer++) {
     const leftI = centerI - layer;
     const rightI = centerI + layer;
@@ -233,8 +238,8 @@ function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine) {
     const rightX = margin + rightI * cellSize;
     const archRadius = layer * cellSize;
 
-    // Arch top Y position
-    const archTopY = margin + layer * cellSize;
+    // Arch top Y position (but not above the height limit)
+    const archTopY = max(topLimit, margin + layer * cellSize);
 
     // Left vertical line
     line(leftX, bottomY, leftX, archTopY);
@@ -255,10 +260,10 @@ function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine) {
     endShape();
   }
 
-  // Central vertical line (optional)
+  // Central vertical line (optional) - goes to top limit
   if (drawCenterLine) {
     const centerX = margin + centerI * cellSize;
-    line(centerX, bottomY, centerX, margin);
+    line(centerX, bottomY, centerX, topLimit);
   }
 }
 
@@ -467,6 +472,18 @@ function setupControls() {
     });
   }
 
+  // Side Fountain Height
+  const sideHeightSlider = document.getElementById('sideFountainHeight');
+  const sideHeightValue = document.getElementById('sideHeightValue');
+  if (sideHeightSlider) {
+    sideHeightSlider.value = params.sideFountainHeight;
+    sideHeightSlider.addEventListener('input', (e) => {
+      params.sideFountainHeight = parseFloat(e.target.value);
+      if (sideHeightValue) sideHeightValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      redraw();
+    });
+  }
+
   document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
       document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
@@ -569,6 +586,11 @@ function applyPreset(preset) {
 
   const sideFountainsEl = document.getElementById('sideFountains');
   if (sideFountainsEl) sideFountainsEl.checked = params.sideFountains;
+
+  const sideHeightEl = document.getElementById('sideFountainHeight');
+  if (sideHeightEl) sideHeightEl.value = params.sideFountainHeight;
+  const sideHeightValEl = document.getElementById('sideHeightValue');
+  if (sideHeightValEl) sideHeightValEl.textContent = (params.sideFountainHeight * 100).toFixed(0) + '%';
 
   // Update displays
   document.getElementById('gridValue').textContent = params.gridSize;
