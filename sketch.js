@@ -10,6 +10,10 @@ let params = {
   wobble: 0.02,         // Hand-drawn imperfection
   density: 0.7,         // How many lines to draw
   symmetry: true,       // 4-fold mirror symmetry (Islamic aesthetic)
+  connected: false,     // Lines connect at intersections vs overlap
+  sunburst: 0,          // Art Deco sunburst rays (0 = none, 1 = full)
+  sunburstSpread: 0.5,  // How spread out the rays are (0 = tight, 1 = wide)
+  fountain: 0,          // Frozen fountain (0 = none, 1 = full)
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
@@ -93,17 +97,35 @@ function draw() {
   }
 
   // Diagonal connections - the jali magic
-  for (let i = 0; i < iMax; i++) {
-    for (let j = 0; j < jMax; j++) {
-      const n1 = noise(i * 0.5, j * 0.5, 0);
-      const n2 = noise(i * 0.5, j * 0.5, 100);
-
-      if (n1 < params.density * 0.8) {
-        segments.push([i, j, i + 1, j + 1, 'd1']);
+  if (params.connected) {
+    // Connected mode: each cell gets ONE diagonal, forming continuous zigzag paths
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        if (random() < params.density * 0.9) {
+          // Use noise to pick direction, creates coherent paths
+          const dir = noise(i * 0.3, j * 0.3, params.seed * 0.1) > 0.5;
+          if (dir) {
+            segments.push([i, j, i + 1, j + 1, 'd1']); // \
+          } else {
+            segments.push([i + 1, j, i, j + 1, 'd2']); // /
+          }
+        }
       }
+    }
+  } else {
+    // Original mode: independent random diagonals, can overlap
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        const n1 = noise(i * 0.5, j * 0.5, 0);
+        const n2 = noise(i * 0.5, j * 0.5, 100);
 
-      if (n2 < params.density * 0.8) {
-        segments.push([i + 1, j, i, j + 1, 'd2']);
+        if (n1 < params.density * 0.8) {
+          segments.push([i, j, i + 1, j + 1, 'd1']);
+        }
+
+        if (n2 < params.density * 0.8) {
+          segments.push([i + 1, j, i, j + 1, 'd2']);
+        }
       }
     }
   }
@@ -129,6 +151,87 @@ function draw() {
       drawFlowingLinePixels(2 * cx - x1, 2 * cy - y1, 2 * cx - x2, 2 * cy - y2);
     }
   }
+
+  // Art Deco sunburst - rays from bottom center to top grid points
+  if (params.sunburst > 0) {
+    drawSunburst(cx, cy, gridSize);
+  }
+
+  // Frozen fountain - nested arches using grid
+  if (params.fountain > 0) {
+    drawFrozenFountain(cx, cy, gridSize);
+  }
+}
+
+// Art Deco sunburst - rays from bottom-center grid point upward
+function drawSunburst(cx, cy, gridSize) {
+  const bottomCenterI = floor(gridSize / 2);
+  const startX = margin + bottomCenterI * cellSize;
+  const startY = margin + gridSize * cellSize;
+
+  const numRays = floor(5 + params.sunburst * 12); // 5-17 rays
+
+  // Spread controls the angle range: 0 = tight (30°), 1 = wide (150°)
+  const minSpread = PI / 6;  // 30 degrees total
+  const maxSpread = PI * 5/6; // 150 degrees total
+  const totalSpread = minSpread + params.sunburstSpread * (maxSpread - minSpread);
+
+  const startAngle = -PI/2 - totalSpread/2; // centered on straight up
+  const endAngle = -PI/2 + totalSpread/2;
+
+  for (let i = 0; i < numRays; i++) {
+    const angle = startAngle + (i / (numRays - 1)) * totalSpread;
+
+    // Ray length to edge of grid
+    const rayLength = (height - margin * 2);
+    const targetX = startX + cos(angle) * rayLength;
+    const targetY = startY + sin(angle) * rayLength;
+
+    drawFlowingLinePixels(startX, startY, targetX, targetY);
+  }
+}
+
+// Frozen fountain - nested arches using grid points
+function drawFrozenFountain(cx, cy, gridSize) {
+  const centerI = floor(gridSize / 2);
+  const maxLayers = floor(1 + params.fountain * 2); // 1-3 layers (narrower)
+  const bottomY = margin + gridSize * cellSize;
+
+  for (let layer = 1; layer <= maxLayers; layer++) {
+    const leftI = centerI - layer;
+    const rightI = centerI + layer;
+
+    if (leftI < 0 || rightI > gridSize) continue;
+
+    const leftX = margin + leftI * cellSize;
+    const rightX = margin + rightI * cellSize;
+    const archRadius = layer * cellSize;
+
+    // Arch top Y position - where the semicircle peaks
+    const archTopY = margin + layer * cellSize;
+
+    // Left vertical line - from bottom to where arch starts
+    line(leftX, bottomY, leftX, archTopY);
+
+    // Right vertical line - from bottom to where arch starts
+    line(rightX, bottomY, rightX, archTopY);
+
+    // Arch connecting the tops (semicircle)
+    const archCenterX = margin + centerI * cellSize;
+    noFill();
+    beginShape();
+    for (let t = 0; t <= 20; t++) {
+      const angle = PI + (t / 20) * PI;
+      const x = archCenterX + cos(angle) * archRadius;
+      const y = archTopY + sin(angle) * archRadius;
+      vertex(x, y);
+    }
+    endShape();
+  }
+
+  // Central vertical line - full height
+  const centerX = margin + centerI * cellSize;
+  line(centerX, bottomY, centerX, margin);
 }
 
 // Draw a line between two grid points, but let it flow organically
@@ -268,6 +371,64 @@ function setupControls() {
     });
   }
 
+  // Wobble (hand-drawn jiggle)
+  const wobbleSlider = document.getElementById('wobble');
+  const wobbleValue = document.getElementById('wobbleValue');
+  if (wobbleSlider) {
+    wobbleSlider.value = params.wobble;
+    wobbleSlider.addEventListener('input', (e) => {
+      params.wobble = parseFloat(e.target.value);
+      if (wobbleValue) wobbleValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      redraw();
+    });
+  }
+
+  // Connected toggle
+  const connectedCheck = document.getElementById('connected');
+  if (connectedCheck) {
+    connectedCheck.checked = params.connected;
+    connectedCheck.addEventListener('change', (e) => {
+      params.connected = e.target.checked;
+      redraw();
+    });
+  }
+
+  // Sunburst
+  const sunburstSlider = document.getElementById('sunburst');
+  const sunburstValue = document.getElementById('sunburstValue');
+  if (sunburstSlider) {
+    sunburstSlider.value = params.sunburst;
+    sunburstSlider.addEventListener('input', (e) => {
+      params.sunburst = parseFloat(e.target.value);
+      if (sunburstValue) sunburstValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      redraw();
+    });
+  }
+
+  // Sunburst Spread
+  const spreadSlider = document.getElementById('sunburstSpread');
+  const spreadValue = document.getElementById('spreadValue');
+  if (spreadSlider) {
+    spreadSlider.value = params.sunburstSpread;
+    spreadSlider.addEventListener('input', (e) => {
+      params.sunburstSpread = parseFloat(e.target.value);
+      if (spreadValue) spreadValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      redraw();
+    });
+  }
+
+  // Frozen Fountain
+  const fountainSlider = document.getElementById('fountain');
+  const fountainValue = document.getElementById('fountainValue');
+  if (fountainSlider) {
+    fountainSlider.value = params.fountain;
+    fountainSlider.addEventListener('input', (e) => {
+      params.fountain = parseFloat(e.target.value);
+      if (fountainValue) fountainValue.textContent = (e.target.value * 100).toFixed(0) + '%';
+      redraw();
+    });
+  }
+
   document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
       document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
@@ -300,6 +461,97 @@ function setupControls() {
         break;
     }
   });
+
+  // Presets
+  document.getElementById('savePreset')?.addEventListener('click', savePreset);
+  loadPresets();
+}
+
+// ============================================
+// PRESETS
+// ============================================
+
+function savePreset() {
+  const presets = JSON.parse(localStorage.getItem('jaliPresets') || '[]');
+  const preset = { ...params, id: Date.now() };
+  presets.push(preset);
+  localStorage.setItem('jaliPresets', JSON.stringify(presets));
+  loadPresets();
+}
+
+function loadPresets() {
+  const container = document.getElementById('presetList');
+  if (!container) return;
+
+  const presets = JSON.parse(localStorage.getItem('jaliPresets') || '[]');
+  container.innerHTML = '';
+
+  presets.forEach((preset, index) => {
+    const btn = document.createElement('button');
+    btn.className = 'preset-btn';
+    btn.innerHTML = `#${preset.seed} <span class="delete">×</span>`;
+
+    btn.addEventListener('click', (e) => {
+      if (e.target.classList.contains('delete')) {
+        deletePreset(index);
+      } else {
+        applyPreset(preset);
+      }
+    });
+
+    container.appendChild(btn);
+  });
+}
+
+function applyPreset(preset) {
+  // Apply all params
+  Object.assign(params, preset);
+
+  // Update all UI controls
+  const updates = [
+    ['seed', params.seed],
+    ['gridSize', params.gridSize],
+    ['diagonalProb', params.density],
+    ['lineWeight', params.lineWeight],
+    ['imperfection', params.flowStrength],
+    ['wobble', params.wobble],
+    ['sunburst', params.sunburst],
+    ['sunburstSpread', params.sunburstSpread],
+    ['fountain', params.fountain],
+  ];
+
+  updates.forEach(([id, value]) => {
+    const el = document.getElementById(id);
+    if (el) el.value = value;
+  });
+
+  // Update checkboxes
+  const connectedEl = document.getElementById('connected');
+  if (connectedEl) connectedEl.checked = params.connected;
+
+  // Update displays
+  document.getElementById('gridValue').textContent = params.gridSize;
+  document.getElementById('diagValue').textContent = (params.density * 100).toFixed(0) + '%';
+  document.getElementById('weightValue').textContent = params.lineWeight + 'px';
+  document.getElementById('imperfectValue').textContent = (params.flowStrength * 100).toFixed(0) + '%';
+  document.getElementById('wobbleValue').textContent = (params.wobble * 100).toFixed(0) + '%';
+  document.getElementById('sunburstValue').textContent = (params.sunburst * 100).toFixed(0) + '%';
+  document.getElementById('spreadValue').textContent = (params.sunburstSpread * 100).toFixed(0) + '%';
+  document.getElementById('fountainValue').textContent = (params.fountain * 100).toFixed(0) + '%';
+
+  // Update color swatch
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    s.classList.toggle('active', s.dataset.bg === params.bgColor);
+  });
+
+  redraw();
+}
+
+function deletePreset(index) {
+  const presets = JSON.parse(localStorage.getItem('jaliPresets') || '[]');
+  presets.splice(index, 1);
+  localStorage.setItem('jaliPresets', JSON.stringify(presets));
+  loadPresets();
 }
 
 // ============================================

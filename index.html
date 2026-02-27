@@ -96,6 +96,21 @@
     .seed-row { display: flex; gap: 8px; }
     .seed-row input { flex: 1; }
     .seed-row button { width: auto; padding: 8px 16px; margin: 0; }
+    .preset-btn {
+      padding: 4px 8px;
+      font-size: 11px;
+      background: #333;
+      color: #fff;
+      border: 1px solid #444;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .preset-btn:hover { background: #444; }
+    .preset-btn .delete {
+      margin-left: 4px;
+      color: #888;
+    }
+    .preset-btn .delete:hover { color: #f55; }
   </style>
 </head>
 <body>
@@ -135,8 +150,41 @@
 
     <div class="control-group">
       <label>Flow / Curve</label>
-      <input type="range" id="imperfection" min="0" max="1" step="0.05" value="0.05">
+      <input type="range" id="imperfection" min="0" max="1" step="0.025" value="0.05">
       <div class="value-display"><span id="imperfectValue">5%</span></div>
+    </div>
+
+    <div class="control-group">
+      <label>Wobble</label>
+      <input type="range" id="wobble" min="0" max="0.1" step="0.005" value="0.02">
+      <div class="value-display"><span id="wobbleValue">2%</span></div>
+    </div>
+
+    <div class="control-group">
+      <label style="display: flex; align-items: center; gap: 8px; cursor: pointer;">
+        <input type="checkbox" id="connected" style="width: auto;">
+        <span style="text-transform: none; letter-spacing: 0;">Connected Lines</span>
+      </label>
+    </div>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+      <label>Sunburst</label>
+      <input type="range" id="sunburst" min="0" max="1" step="0.05" value="0">
+      <div class="value-display"><span id="sunburstValue">0%</span></div>
+    </div>
+
+    <div class="control-group">
+      <label>Sunburst Spread</label>
+      <input type="range" id="sunburstSpread" min="0" max="1" step="0.05" value="0.5">
+      <div class="value-display"><span id="spreadValue">50%</span></div>
+    </div>
+
+    <div class="control-group">
+      <label>Frozen Fountain</label>
+      <input type="range" id="fountain" min="0" max="1" step="0.05" value="0">
+      <div class="value-display"><span id="fountainValue">0%</span></div>
     </div>
 
     <div class="divider"></div>
@@ -147,6 +195,7 @@
         <div class="color-swatch active" style="background: #1a1a1a" data-bg="#1a1a1a" data-fg="#f5f0e6"></div>
         <div class="color-swatch" style="background: #f5f0e6" data-bg="#f5f0e6" data-fg="#1a1a1a"></div>
         <div class="color-swatch" style="background: #0a3d62" data-bg="#0a3d62" data-fg="#f8c291"></div>
+        <div class="color-swatch" style="background: #0240E4" data-bg="#0240E4" data-fg="#f5f0e6"></div>
         <div class="color-swatch" style="background: #ffffff" data-bg="#ffffff" data-fg="#000000"></div>
       </div>
     </div>
@@ -155,6 +204,14 @@
 
     <button id="exportSVG">Export SVG</button>
     <button id="exportPNG" class="secondary">Export PNG</button>
+
+    <div class="divider"></div>
+
+    <div class="control-group">
+      <label>Presets</label>
+      <button id="savePreset" class="secondary">Save Current</button>
+      <div id="presetList" style="margin-top: 8px; display: flex; flex-wrap: wrap; gap: 4px;"></div>
+    </div>
 
     <div class="shortcuts">
       <kbd>Space</kbd> / <kbd>G</kbd> Generate<br>
