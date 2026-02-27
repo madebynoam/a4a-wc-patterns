@@ -6,7 +6,7 @@ let params = {
   seed: 42,
   gridSize: 6,
   lineWeight: 2.5,
-  flowStrength: 0.3,    // How much flow field influences direction
+  flowStrength: 0.05,   // How much flow field influences direction
   wobble: 0.02,         // Hand-drawn imperfection
   density: 0.7,         // How many lines to draw
   symmetry: true,       // 4-fold mirror symmetry (Islamic aesthetic)
