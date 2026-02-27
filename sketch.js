@@ -9,6 +9,7 @@ let params = {
   flowStrength: 0.3,    // How much flow field influences direction
   wobble: 0.02,         // Hand-drawn imperfection
   density: 0.7,         // How many lines to draw
+  symmetry: true,       // 4-fold mirror symmetry (Islamic aesthetic)
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
@@ -61,42 +62,71 @@ function draw() {
     }
   }
 
-  // Draw the lattice structure
-  // Start lines from grid intersections, let them flow to neighbors
+  // For symmetry: only generate top-left quadrant, mirror to others
+  // For no symmetry: generate full grid
+  const halfGrid = params.symmetry ? ceil(gridSize / 2) : gridSize;
+  const cx = width / 2;
+  const cy = height / 2;
+
+  // Collect segments (in quadrant if symmetry, full grid otherwise)
+  let segments = [];
 
   // Horizontal-ish connections
-  for (let j = 0; j <= gridSize; j++) {
-    for (let i = 0; i < gridSize; i++) {
+  const jMax = params.symmetry ? halfGrid : gridSize;
+  const iMax = params.symmetry ? halfGrid : gridSize;
+
+  for (let j = 0; j <= jMax; j++) {
+    for (let i = 0; i < iMax; i++) {
       if (random() < params.density) {
-        drawFlowingLine(i, j, i + 1, j);
+        segments.push([i, j, i + 1, j, 'h']);
       }
     }
   }
 
   // Vertical-ish connections
-  for (let i = 0; i <= gridSize; i++) {
-    for (let j = 0; j < gridSize; j++) {
+  for (let i = 0; i <= iMax; i++) {
+    for (let j = 0; j < jMax; j++) {
       if (random() < params.density) {
-        drawFlowingLine(i, j, i, j + 1);
+        segments.push([i, j, i, j + 1, 'v']);
       }
     }
   }
 
   // Diagonal connections - the jali magic
-  for (let i = 0; i < gridSize; i++) {
-    for (let j = 0; j < gridSize; j++) {
+  for (let i = 0; i < iMax; i++) {
+    for (let j = 0; j < jMax; j++) {
       const n1 = noise(i * 0.5, j * 0.5, 0);
       const n2 = noise(i * 0.5, j * 0.5, 100);
 
-      // Diagonal: top-left to bottom-right
       if (n1 < params.density * 0.8) {
-        drawFlowingLine(i, j, i + 1, j + 1);
+        segments.push([i, j, i + 1, j + 1, 'd1']);
       }
 
-      // Diagonal: top-right to bottom-left
       if (n2 < params.density * 0.8) {
-        drawFlowingLine(i + 1, j, i, j + 1);
+        segments.push([i + 1, j, i, j + 1, 'd2']);
       }
+    }
+  }
+
+  // Draw all segments
+  for (let seg of segments) {
+    const x1 = margin + seg[0] * cellSize;
+    const y1 = margin + seg[1] * cellSize;
+    const x2 = margin + seg[2] * cellSize;
+    const y2 = margin + seg[3] * cellSize;
+
+    // Draw original (top-left quadrant or full)
+    drawFlowingLinePixels(x1, y1, x2, y2);
+
+    if (params.symmetry) {
+      // Mirror horizontally (to top-right)
+      drawFlowingLinePixels(2 * cx - x1, y1, 2 * cx - x2, y2);
+
+      // Mirror vertically (to bottom-left)
+      drawFlowingLinePixels(x1, 2 * cy - y1, x2, 2 * cy - y2);
+
+      // Mirror both (to bottom-right)
+      drawFlowingLinePixels(2 * cx - x1, 2 * cy - y1, 2 * cx - x2, 2 * cy - y2);
     }
   }
 }
@@ -107,6 +137,11 @@ function drawFlowingLine(i1, j1, i2, j2) {
   const y1 = margin + j1 * cellSize;
   const x2 = margin + i2 * cellSize;
   const y2 = margin + j2 * cellSize;
+  drawFlowingLinePixels(x1, y1, x2, y2);
+}
+
+// Draw flowing line from pixel coordinates
+function drawFlowingLinePixels(x1, y1, x2, y2) {
 
   // Number of segments - more = smoother curve
   const segments = 8;
@@ -116,12 +151,8 @@ function drawFlowingLine(i1, j1, i2, j2) {
     const progress = t / segments;
 
     // Base position along straight line
-    let x = lerp(x1, y1, progress);
+    let x = lerp(x1, x2, progress);
     let y = lerp(y1, y2, progress);
-
-    // Wait, that's wrong. Let me fix:
-    x = lerp(x1, x2, progress);
-    y = lerp(y1, y2, progress);
 
     // Get flow influence at this point
     const gridI = (x - margin) / cellSize;
