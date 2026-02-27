@@ -14,6 +14,7 @@ let params = {
   sunburst: 0,          // Art Deco sunburst rays (0 = none, 1 = full)
   sunburstSpread: 0.5,  // How spread out the rays are (0 = tight, 1 = wide)
   fountain: 0,          // Frozen fountain (0 = none, 1 = full)
+  sideFountains: false, // Add smaller side arches (Gateway of India style)
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
@@ -197,26 +198,51 @@ function drawFrozenFountain(cx, cy, gridSize) {
   const maxLayers = floor(1 + params.fountain * 2); // 1-3 layers (narrower)
   const bottomY = margin + gridSize * cellSize;
 
+  // Draw main central fountain
+  drawFountainAt(centerI, maxLayers, bottomY, gridSize, true);
+
+  // Side fountains (Gateway of India style)
+  if (params.sideFountains && maxLayers >= 1) {
+    const mainWidth = maxLayers + 1; // Gap after main fountain
+    const sideWidth = 1; // Side fountains are single-layer
+
+    // Left side fountain - position it at grid edge
+    const leftCenterI = 1;
+    if (leftCenterI >= 1) {
+      drawFountainAt(leftCenterI, sideWidth, bottomY, gridSize, false);
+    }
+
+    // Right side fountain - position it at grid edge
+    const rightCenterI = gridSize - 1;
+    if (rightCenterI <= gridSize - 1) {
+      drawFountainAt(rightCenterI, sideWidth, bottomY, gridSize, false);
+    }
+  }
+}
+
+// Draw a single fountain at a given center position
+function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine) {
   for (let layer = 1; layer <= maxLayers; layer++) {
     const leftI = centerI - layer;
     const rightI = centerI + layer;
 
+    // Stay within grid bounds
     if (leftI < 0 || rightI > gridSize) continue;
 
     const leftX = margin + leftI * cellSize;
     const rightX = margin + rightI * cellSize;
     const archRadius = layer * cellSize;
 
-    // Arch top Y position - where the semicircle peaks
+    // Arch top Y position
     const archTopY = margin + layer * cellSize;
 
-    // Left vertical line - from bottom to where arch starts
+    // Left vertical line
     line(leftX, bottomY, leftX, archTopY);
 
-    // Right vertical line - from bottom to where arch starts
+    // Right vertical line
     line(rightX, bottomY, rightX, archTopY);
 
-    // Arch connecting the tops (semicircle)
+    // Arch connecting the tops
     const archCenterX = margin + centerI * cellSize;
     noFill();
     beginShape();
@@ -229,9 +255,11 @@ function drawFrozenFountain(cx, cy, gridSize) {
     endShape();
   }
 
-  // Central vertical line - full height
-  const centerX = margin + centerI * cellSize;
-  line(centerX, bottomY, centerX, margin);
+  // Central vertical line (optional)
+  if (drawCenterLine) {
+    const centerX = margin + centerI * cellSize;
+    line(centerX, bottomY, centerX, margin);
+  }
 }
 
 // Draw a line between two grid points, but let it flow organically
@@ -429,6 +457,16 @@ function setupControls() {
     });
   }
 
+  // Side Fountains toggle
+  const sideFountainsCheck = document.getElementById('sideFountains');
+  if (sideFountainsCheck) {
+    sideFountainsCheck.checked = params.sideFountains;
+    sideFountainsCheck.addEventListener('change', (e) => {
+      params.sideFountains = e.target.checked;
+      redraw();
+    });
+  }
+
   document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
       document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
@@ -528,6 +566,9 @@ function applyPreset(preset) {
   // Update checkboxes
   const connectedEl = document.getElementById('connected');
   if (connectedEl) connectedEl.checked = params.connected;
+
+  const sideFountainsEl = document.getElementById('sideFountains');
+  if (sideFountainsEl) sideFountainsEl.checked = params.sideFountains;
 
   // Update displays
   document.getElementById('gridValue').textContent = params.gridSize;
