@@ -1092,29 +1092,35 @@ function generateSVGString() {
         const y0 = margin + j * localCellSize;
         const x1 = margin + (i + 1) * localCellSize;
         const y1 = margin + (j + 1) * localCellSize;
+        const midX = (x0 + x1) / 2;
+        const midY = (y0 + y1) / 2;
 
-        const fillNoise = noise(i * 0.4, j * 0.4, params.seed * 0.05);
-
-        let tri = null;
+        // Use checkerboard pattern to match canvas
+        let tris = [];
         if (cellDiags.includes('d1') && cellDiags.includes('d2')) {
-          if (fillNoise < 0.25) {
-            tri = [x0, y0, x1, y0, (x0+x1)/2, (y0+y1)/2];
-          } else if (fillNoise < 0.5) {
-            tri = [x1, y0, x1, y1, (x0+x1)/2, (y0+y1)/2];
-          } else if (fillNoise < 0.75) {
-            tri = [x1, y1, x0, y1, (x0+x1)/2, (y0+y1)/2];
+          // Both diagonals (X) - fill 2 opposite triangles
+          if ((i + j) % 2 === 0) {
+            tris.push([x0, y0, x1, y0, midX, midY]);
+            tris.push([x0, y1, x1, y1, midX, midY]);
+          } else {
+            tris.push([x0, y0, x0, y1, midX, midY]);
+            tris.push([x1, y0, x1, y1, midX, midY]);
           }
         } else if (cellDiags.includes('d1')) {
-          if (fillNoise < 0.4) {
-            tri = [x0, y0, x1, y0, x1, y1];
+          if ((i + j) % 2 === 0) {
+            tris.push([x0, y0, x1, y0, x1, y1]);
+          } else {
+            tris.push([x0, y0, x0, y1, x1, y1]);
           }
         } else if (cellDiags.includes('d2')) {
-          if (fillNoise < 0.4) {
-            tri = [x0, y0, x1, y0, x0, y1];
+          if ((i + j) % 2 === 0) {
+            tris.push([x1, y0, x0, y0, x0, y1]);
+          } else {
+            tris.push([x1, y0, x1, y1, x0, y1]);
           }
         }
 
-        if (tri) {
+        for (let tri of tris) {
           svg += svgTriangle(tri[0], tri[1], tri[2], tri[3], tri[4], tri[5]);
           if (params.symmetry) {
             svg += svgTriangle(2*cx - tri[0], tri[1], 2*cx - tri[2], tri[3], 2*cx - tri[4], tri[5]);
