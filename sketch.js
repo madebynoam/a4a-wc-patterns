@@ -41,7 +41,11 @@ function setup() {
 }
 
 function generate() {
-  redraw();
+  if (gridMode) {
+    generateGridItems();
+  } else {
+    redraw();
+  }
 }
 
 function draw() {
@@ -511,7 +515,7 @@ function setupControls() {
     gridSlider.addEventListener('input', (e) => {
       params.gridSize = parseInt(e.target.value);
       if (gridValue) gridValue.textContent = e.target.value;
-      redraw();
+      generate();
     });
   }
 
@@ -523,7 +527,7 @@ function setupControls() {
     diagSlider.addEventListener('input', (e) => {
       params.density = parseFloat(e.target.value);
       if (diagValue) diagValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      redraw();
+      generate();
     });
   }
 
@@ -533,7 +537,7 @@ function setupControls() {
     weightSlider.addEventListener('input', (e) => {
       params.lineWeight = parseFloat(e.target.value);
       if (weightValue) weightValue.textContent = e.target.value + 'px';
-      redraw();
+      generate();
     });
   }
 
@@ -550,7 +554,7 @@ function setupControls() {
     wobbleSlider.addEventListener('input', (e) => {
       params.wobble = parseFloat(e.target.value);
       if (wobbleValue) wobbleValue.textContent = formatWobble(params.wobble);
-      redraw();
+      generate();
     });
   }
 
@@ -560,7 +564,7 @@ function setupControls() {
     connectedCheck.checked = params.connected;
     connectedCheck.addEventListener('change', (e) => {
       params.connected = e.target.checked;
-      redraw();
+      generate();
     });
   }
 
@@ -570,7 +574,7 @@ function setupControls() {
     sunburstCheck.checked = params.sunburst;
     sunburstCheck.addEventListener('change', (e) => {
       params.sunburst = e.target.checked;
-      redraw();
+      generate();
     });
   }
 
@@ -582,7 +586,7 @@ function setupControls() {
     spreadSlider.addEventListener('input', (e) => {
       params.sunburstSpread = parseFloat(e.target.value);
       if (spreadValue) spreadValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      redraw();
+      generate();
     });
   }
 
@@ -594,7 +598,7 @@ function setupControls() {
     sunburstHeightSlider.addEventListener('input', (e) => {
       params.sunburstHeight = parseFloat(e.target.value);
       if (sunburstHeightValue) sunburstHeightValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      redraw();
+      generate();
     });
   }
 
@@ -606,7 +610,7 @@ function setupControls() {
     fountainSlider.addEventListener('input', (e) => {
       params.fountain = parseFloat(e.target.value);
       if (fountainValue) fountainValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      redraw();
+      generate();
     });
   }
 
@@ -616,7 +620,7 @@ function setupControls() {
     sideFountainsCheck.checked = params.sideFountains;
     sideFountainsCheck.addEventListener('change', (e) => {
       params.sideFountains = e.target.checked;
-      redraw();
+      generate();
     });
   }
 
@@ -628,7 +632,7 @@ function setupControls() {
     sideHeightSlider.addEventListener('input', (e) => {
       params.sideFountainHeight = parseFloat(e.target.value);
       if (sideHeightValue) sideHeightValue.textContent = (e.target.value * 100).toFixed(0) + '%';
-      redraw();
+      generate();
     });
   }
 
@@ -638,7 +642,7 @@ function setupControls() {
     fillArchesCheck.checked = params.fillArches;
     fillArchesCheck.addEventListener('change', (e) => {
       params.fillArches = e.target.checked;
-      redraw();
+      generate();
     });
   }
 
@@ -648,7 +652,7 @@ function setupControls() {
     filledCheck.checked = params.filled;
     filledCheck.addEventListener('change', (e) => {
       params.filled = e.target.checked;
-      redraw();
+      generate();
     });
   }
 
@@ -658,7 +662,7 @@ function setupControls() {
       e.target.classList.add('active');
       params.bgColor = e.target.dataset.bg;
       params.fgColor = e.target.dataset.fg;
-      redraw();
+      generate();
     });
   });
 
@@ -1318,11 +1322,22 @@ function windowResized() {
 
 let gridMode = false;
 let gridItems = [];
+let gridDensity = 4;
 
 function setupGridToggle() {
   const toggleBtn = document.getElementById('grid-toggle');
   if (toggleBtn) {
     toggleBtn.addEventListener('click', toggleGridMode);
+  }
+
+  const densitySlider = document.getElementById('grid-density');
+  if (densitySlider) {
+    densitySlider.addEventListener('input', (e) => {
+      gridDensity = parseInt(e.target.value);
+      if (gridMode) {
+        generateGridItems();
+      }
+    });
   }
 }
 
@@ -1350,17 +1365,40 @@ function toggleGridMode() {
     gridIcon.style.display = 'block';
     singleIcon.style.display = 'none';
     clearGridItems();
+    redraw(); // Redraw main canvas with current seed
   }
 }
 
 function generateGridItems() {
   const gridContainer = document.getElementById('grid-container');
+  const container = document.getElementById('canvas-container');
   gridContainer.innerHTML = '';
   gridItems = [];
 
-  // Generate 16 variations (4x4 grid)
+  // Calculate how many items fit exactly (no scroll)
+  const padding = 24; // 12px each side
+  const gap = 10;
+  const availableWidth = container.offsetWidth - padding;
+  const availableHeight = container.offsetHeight - padding;
+
+  // Calculate item size that fits perfectly
+  // Use density slider value for columns
+  const cols = gridDensity;
+  const itemWidth = (availableWidth - gap * (cols - 1)) / cols;
+  const itemSize = itemWidth; // Square items
+
+  // Calculate how many rows fit completely
+  const rows = Math.floor((availableHeight + gap) / (itemSize + gap));
+  const actualRows = Math.max(1, rows);
+  const totalItems = cols * actualRows;
+
+  // Set grid template with fixed size items
+  gridContainer.style.gridTemplateColumns = `repeat(${cols}, ${itemSize}px)`;
+  gridContainer.style.gridTemplateRows = `repeat(${actualRows}, ${itemSize}px)`;
+
+  // Generate variations
   const baseSeed = params.seed;
-  for (let i = 0; i < 16; i++) {
+  for (let i = 0; i < totalItems; i++) {
     const itemSeed = baseSeed + i * 7; // Spread seeds out
     const item = createGridItem(itemSeed);
     gridContainer.appendChild(item);
@@ -1372,13 +1410,19 @@ function createGridItem(itemSeed) {
   const item = document.createElement('div');
   item.className = 'grid-item';
 
-  // Create mini canvas
-  const size = 150;
-  const pg = createGraphics(size, size);
-  renderPatternToGraphics(pg, itemSeed, size);
+  // Generate SVG for this seed
+  const originalSeed = params.seed;
+  params.seed = itemSeed;
+  const svgString = generateSVGString();
+  params.seed = originalSeed;
 
-  // Append canvas
-  item.appendChild(pg.canvas);
+  // Create image from SVG
+  const img = document.createElement('img');
+  const blob = new Blob([svgString], { type: 'image/svg+xml' });
+  img.src = URL.createObjectURL(blob);
+  img.style.width = '100%';
+  img.style.height = '100%';
+  item.appendChild(img);
 
   // Seed label
   const seedLabel = document.createElement('div');
@@ -1411,140 +1455,6 @@ function createGridItem(itemSeed) {
   return item;
 }
 
-function renderPatternToGraphics(pg, itemSeed, size) {
-  const localMargin = size * 0.08;
-  const localCellSize = (size - localMargin * 2) / params.gridSize;
-  const gridSize = params.gridSize;
-
-  // Use global seed functions
-  randomSeed(itemSeed);
-  noiseSeed(itemSeed);
-
-  pg.background(params.bgColor);
-  pg.stroke(params.fgColor);
-  pg.strokeWeight(params.lineWeight * (size / 600));
-  pg.strokeCap(ROUND);
-  pg.strokeJoin(ROUND);
-  pg.noFill();
-
-  // Build flow field
-  const localFlowField = [];
-  for (let i = 0; i <= gridSize; i++) {
-    localFlowField[i] = [];
-    for (let j = 0; j <= gridSize; j++) {
-      const noiseVal = noise(i * 0.5, j * 0.5, itemSeed * 0.01);
-      const baseAngle = floor(noiseVal * 8) * (PI / 4);
-      const deviation = (noise(i * 0.3, j * 0.3, 100) - 0.5) * params.flowStrength * PI;
-      localFlowField[i][j] = baseAngle + deviation;
-    }
-  }
-
-  const halfGrid = params.symmetry ? ceil(gridSize / 2) : gridSize;
-  const cx = size / 2;
-  const cy = size / 2;
-
-  let segments = [];
-  const jMax = params.symmetry ? halfGrid : gridSize;
-  const iMax = params.symmetry ? halfGrid : gridSize;
-
-  // Collect segments
-  for (let j = 0; j <= jMax; j++) {
-    for (let i = 0; i < iMax; i++) {
-      if (random() < params.density) segments.push([i, j, i + 1, j, 'h']);
-    }
-  }
-  for (let i = 0; i <= iMax; i++) {
-    for (let j = 0; j < jMax; j++) {
-      if (random() < params.density) segments.push([i, j, i, j + 1, 'v']);
-    }
-  }
-  if (params.connected) {
-    for (let i = 0; i < iMax; i++) {
-      for (let j = 0; j < jMax; j++) {
-        if (random() < params.density * 0.9) {
-          const dir = noise(i * 0.3, j * 0.3, itemSeed * 0.1) > 0.5;
-          segments.push(dir ? [i, j, i + 1, j + 1, 'd1'] : [i + 1, j, i, j + 1, 'd2']);
-        }
-      }
-    }
-  } else {
-    for (let i = 0; i < iMax; i++) {
-      for (let j = 0; j < jMax; j++) {
-        if (noise(i * 0.5, j * 0.5, 0) < params.density * 0.8) segments.push([i, j, i + 1, j + 1, 'd1']);
-        if (noise(i * 0.5, j * 0.5, 100) < params.density * 0.8) segments.push([i + 1, j, i, j + 1, 'd2']);
-      }
-    }
-  }
-
-  // Draw filled shapes if enabled
-  if (params.filled) {
-    const diags = {};
-    for (let seg of segments) {
-      const type = seg[4];
-      if (type === 'd1' || type === 'd2') {
-        const minI = Math.min(seg[0], seg[2]);
-        const minJ = Math.min(seg[1], seg[3]);
-        const key = `${minI},${minJ}`;
-        if (!diags[key]) diags[key] = [];
-        diags[key].push(type);
-      }
-    }
-
-    pg.fill(params.fgColor);
-    pg.noStroke();
-    for (let i = 0; i < iMax; i++) {
-      for (let j = 0; j < jMax; j++) {
-        const key = `${i},${j}`;
-        const cellDiags = diags[key] || [];
-        const x0 = localMargin + i * localCellSize;
-        const y0 = localMargin + j * localCellSize;
-        const x1 = localMargin + (i + 1) * localCellSize;
-        const y1 = localMargin + (j + 1) * localCellSize;
-        const midX = (x0 + x1) / 2;
-        const midY = (y0 + y1) / 2;
-
-        if (cellDiags.includes('d1') && cellDiags.includes('d2')) {
-          if ((i + j) % 2 === 0) {
-            pg.triangle(x0, y0, x1, y0, midX, midY);
-            pg.triangle(x0, y1, x1, y1, midX, midY);
-          } else {
-            pg.triangle(x0, y0, x0, y1, midX, midY);
-            pg.triangle(x1, y0, x1, y1, midX, midY);
-          }
-        } else if (cellDiags.includes('d1')) {
-          if ((i + j) % 2 === 0) pg.triangle(x0, y0, x1, y0, x1, y1);
-          else pg.triangle(x0, y0, x0, y1, x1, y1);
-        } else if (cellDiags.includes('d2')) {
-          if ((i + j) % 2 === 0) pg.triangle(x1, y0, x0, y0, x0, y1);
-          else pg.triangle(x1, y0, x1, y1, x0, y1);
-        }
-
-        // Mirror fills
-        if (params.symmetry) {
-          // Simplified - just draw all quadrants
-        }
-      }
-    }
-    pg.stroke(params.fgColor);
-    pg.noFill();
-  }
-
-  // Draw segments
-  for (let seg of segments) {
-    const x1 = localMargin + seg[0] * localCellSize;
-    const y1 = localMargin + seg[1] * localCellSize;
-    const x2 = localMargin + seg[2] * localCellSize;
-    const y2 = localMargin + seg[3] * localCellSize;
-
-    pg.line(x1, y1, x2, y2);
-    if (params.symmetry) {
-      pg.line(2 * cx - x1, y1, 2 * cx - x2, y2);
-      pg.line(x1, 2 * cy - y1, x2, 2 * cy - y2);
-      pg.line(2 * cx - x1, 2 * cy - y1, 2 * cx - x2, 2 * cy - y2);
-    }
-  }
-}
-
 function copyGridItemSVG(itemSeed) {
   const originalSeed = params.seed;
   params.seed = itemSeed;
@@ -1560,7 +1470,7 @@ function selectGridItem(itemSeed) {
   params.seed = itemSeed;
   document.getElementById('seed').value = itemSeed;
   toggleGridMode(); // Exit grid mode
-  redraw();
+  // redraw is called by toggleGridMode exiting
 }
 
 function clearGridItems() {
