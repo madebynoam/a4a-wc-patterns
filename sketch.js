@@ -376,16 +376,39 @@ function drawFilledShapes(segments, halfGrid, iMax, jMax, cx, cy) {
 }
 
 function drawFilledTriangle(ax, ay, bx, by, cx_t, cy_t, cx, cy) {
-  // Draw original
-  triangle(ax, ay, bx, by, cx_t, cy_t);
+  // Apply wobble to vertices
+  const w = params.wobble * cellSize;
+  const wobbleVertex = (x, y) => {
+    if (w > 0) {
+      return [x + random(-w, w), y + random(-w, w)];
+    }
+    return [x, y];
+  };
+
+  // Draw original with wobble
+  const [ax1, ay1] = wobbleVertex(ax, ay);
+  const [bx1, by1] = wobbleVertex(bx, by);
+  const [cx1, cy1] = wobbleVertex(cx_t, cy_t);
+  triangle(ax1, ay1, bx1, by1, cx1, cy1);
 
   if (params.symmetry) {
     // Mirror horizontally
-    triangle(2*cx - ax, ay, 2*cx - bx, by, 2*cx - cx_t, cy_t);
+    const [ax2, ay2] = wobbleVertex(2*cx - ax, ay);
+    const [bx2, by2] = wobbleVertex(2*cx - bx, by);
+    const [cx2, cy2] = wobbleVertex(2*cx - cx_t, cy_t);
+    triangle(ax2, ay2, bx2, by2, cx2, cy2);
+
     // Mirror vertically
-    triangle(ax, 2*cy - ay, bx, 2*cy - by, cx_t, 2*cy - cy_t);
+    const [ax3, ay3] = wobbleVertex(ax, 2*cy - ay);
+    const [bx3, by3] = wobbleVertex(bx, 2*cy - by);
+    const [cx3, cy3] = wobbleVertex(cx_t, 2*cy - cy_t);
+    triangle(ax3, ay3, bx3, by3, cx3, cy3);
+
     // Mirror both
-    triangle(2*cx - ax, 2*cy - ay, 2*cx - bx, 2*cy - by, 2*cx - cx_t, 2*cy - cy_t);
+    const [ax4, ay4] = wobbleVertex(2*cx - ax, 2*cy - ay);
+    const [bx4, by4] = wobbleVertex(2*cx - bx, 2*cy - by);
+    const [cx4, cy4] = wobbleVertex(2*cx - cx_t, 2*cy - cy_t);
+    triangle(ax4, ay4, bx4, by4, cx4, cy4);
   }
 }
 
@@ -510,18 +533,6 @@ function setupControls() {
     weightSlider.addEventListener('input', (e) => {
       params.lineWeight = parseFloat(e.target.value);
       if (weightValue) weightValue.textContent = e.target.value + 'px';
-      redraw();
-    });
-  }
-
-  // Repurpose imperfection as flow strength
-  const imperfectSlider = document.getElementById('imperfection');
-  const imperfectValue = document.getElementById('imperfectValue');
-  if (imperfectSlider) {
-    imperfectSlider.value = params.flowStrength;
-    imperfectSlider.addEventListener('input', (e) => {
-      params.flowStrength = parseFloat(e.target.value);
-      if (imperfectValue) imperfectValue.textContent = (e.target.value * 100).toFixed(0) + '%';
       redraw();
     });
   }
@@ -875,7 +886,6 @@ function applyPreset(preset) {
     ['gridSize', params.gridSize],
     ['diagonalProb', params.density],
     ['lineWeight', params.lineWeight],
-    ['imperfection', params.flowStrength],
     ['wobble', params.wobble],
     ['sunburstSpread', params.sunburstSpread],
     ['sunburstHeight', params.sunburstHeight],
@@ -912,7 +922,6 @@ function applyPreset(preset) {
   document.getElementById('gridValue').textContent = params.gridSize;
   document.getElementById('diagValue').textContent = (params.density * 100).toFixed(0) + '%';
   document.getElementById('weightValue').textContent = params.lineWeight + 'px';
-  document.getElementById('imperfectValue').textContent = (params.flowStrength * 100).toFixed(0) + '%';
   document.getElementById('wobbleValue').textContent = ((params.wobble * 100) % 1 === 0 ? (params.wobble * 100).toFixed(0) : (params.wobble * 100).toFixed(1)) + '%';
   document.getElementById('spreadValue').textContent = (params.sunburstSpread * 100).toFixed(0) + '%';
   document.getElementById('sunburstHeightValue').textContent = ((params.sunburstHeight || 1) * 100).toFixed(0) + '%';
@@ -1080,7 +1089,12 @@ function generateSVGString() {
     }
 
     function svgTriangle(ax, ay, bx, by, tcx, tcy) {
-      return `    <polygon points="${ax.toFixed(2)},${ay.toFixed(2)} ${bx.toFixed(2)},${by.toFixed(2)} ${tcx.toFixed(2)},${tcy.toFixed(2)}"/>\n`;
+      const w = params.wobble * localCellSize;
+      const wobble = (v) => w > 0 ? v + random(-w, w) : v;
+      const pax = wobble(ax), pay = wobble(ay);
+      const pbx = wobble(bx), pby = wobble(by);
+      const pcx = wobble(tcx), pcy = wobble(tcy);
+      return `    <polygon points="${pax.toFixed(2)},${pay.toFixed(2)} ${pbx.toFixed(2)},${pby.toFixed(2)} ${pcx.toFixed(2)},${pcy.toFixed(2)}"/>\n`;
     }
 
     for (let i = 0; i < iMax; i++) {
