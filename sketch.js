@@ -1311,3 +1311,266 @@ function windowResized() {
   resizeCanvas(size, size);
   redraw();
 }
+
+// ============================================
+// GRID VIEW MODE
+// ============================================
+
+let gridMode = false;
+let gridItems = [];
+
+function setupGridToggle() {
+  const toggleBtn = document.getElementById('grid-toggle');
+  if (toggleBtn) {
+    toggleBtn.addEventListener('click', toggleGridMode);
+  }
+}
+
+function toggleGridMode() {
+  gridMode = !gridMode;
+  const container = document.getElementById('canvas-container');
+  const gridContainer = document.getElementById('grid-container');
+  const mainCanvas = document.querySelector('#canvas-container > canvas');
+  const gridIcon = document.getElementById('grid-icon');
+  const singleIcon = document.getElementById('single-icon');
+
+  if (gridMode) {
+    // Enter grid mode
+    container.classList.add('grid-mode');
+    if (mainCanvas) mainCanvas.style.display = 'none';
+    gridContainer.classList.add('active');
+    gridIcon.style.display = 'none';
+    singleIcon.style.display = 'block';
+    generateGridItems();
+  } else {
+    // Exit grid mode
+    container.classList.remove('grid-mode');
+    if (mainCanvas) mainCanvas.style.display = 'block';
+    gridContainer.classList.remove('active');
+    gridIcon.style.display = 'block';
+    singleIcon.style.display = 'none';
+    clearGridItems();
+  }
+}
+
+function generateGridItems() {
+  const gridContainer = document.getElementById('grid-container');
+  gridContainer.innerHTML = '';
+  gridItems = [];
+
+  // Generate 16 variations (4x4 grid)
+  const baseSeed = params.seed;
+  for (let i = 0; i < 16; i++) {
+    const itemSeed = baseSeed + i * 7; // Spread seeds out
+    const item = createGridItem(itemSeed);
+    gridContainer.appendChild(item);
+    gridItems.push({ seed: itemSeed, element: item });
+  }
+}
+
+function createGridItem(itemSeed) {
+  const item = document.createElement('div');
+  item.className = 'grid-item';
+
+  // Create mini canvas
+  const size = 150;
+  const pg = createGraphics(size, size);
+  renderPatternToGraphics(pg, itemSeed, size);
+
+  // Append canvas
+  item.appendChild(pg.canvas);
+
+  // Seed label
+  const seedLabel = document.createElement('div');
+  seedLabel.className = 'grid-item-seed';
+  seedLabel.textContent = '#' + itemSeed;
+  item.appendChild(seedLabel);
+
+  // Hover actions
+  const actions = document.createElement('div');
+  actions.className = 'grid-item-actions';
+
+  const copyBtn = document.createElement('button');
+  copyBtn.textContent = 'Copy SVG';
+  copyBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    copyGridItemSVG(itemSeed);
+  });
+
+  const selectBtn = document.createElement('button');
+  selectBtn.textContent = 'Select';
+  selectBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    selectGridItem(itemSeed);
+  });
+
+  actions.appendChild(copyBtn);
+  actions.appendChild(selectBtn);
+  item.appendChild(actions);
+
+  return item;
+}
+
+function renderPatternToGraphics(pg, itemSeed, size) {
+  const localMargin = size * 0.08;
+  const localCellSize = (size - localMargin * 2) / params.gridSize;
+  const gridSize = params.gridSize;
+
+  pg.randomSeed(itemSeed);
+  pg.noiseSeed(itemSeed);
+
+  pg.background(params.bgColor);
+  pg.stroke(params.fgColor);
+  pg.strokeWeight(params.lineWeight * (size / 600));
+  pg.strokeCap(ROUND);
+  pg.strokeJoin(ROUND);
+  pg.noFill();
+
+  // Build flow field
+  const localFlowField = [];
+  for (let i = 0; i <= gridSize; i++) {
+    localFlowField[i] = [];
+    for (let j = 0; j <= gridSize; j++) {
+      const noiseVal = pg.noise(i * 0.5, j * 0.5, itemSeed * 0.01);
+      const baseAngle = pg.floor(noiseVal * 8) * (PI / 4);
+      const deviation = (pg.noise(i * 0.3, j * 0.3, 100) - 0.5) * params.flowStrength * PI;
+      localFlowField[i][j] = baseAngle + deviation;
+    }
+  }
+
+  const halfGrid = params.symmetry ? pg.ceil(gridSize / 2) : gridSize;
+  const cx = size / 2;
+  const cy = size / 2;
+
+  let segments = [];
+  const jMax = params.symmetry ? halfGrid : gridSize;
+  const iMax = params.symmetry ? halfGrid : gridSize;
+
+  // Collect segments
+  for (let j = 0; j <= jMax; j++) {
+    for (let i = 0; i < iMax; i++) {
+      if (pg.random() < params.density) segments.push([i, j, i + 1, j, 'h']);
+    }
+  }
+  for (let i = 0; i <= iMax; i++) {
+    for (let j = 0; j < jMax; j++) {
+      if (pg.random() < params.density) segments.push([i, j, i, j + 1, 'v']);
+    }
+  }
+  if (params.connected) {
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        if (pg.random() < params.density * 0.9) {
+          const dir = pg.noise(i * 0.3, j * 0.3, itemSeed * 0.1) > 0.5;
+          segments.push(dir ? [i, j, i + 1, j + 1, 'd1'] : [i + 1, j, i, j + 1, 'd2']);
+        }
+      }
+    }
+  } else {
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        if (pg.noise(i * 0.5, j * 0.5, 0) < params.density * 0.8) segments.push([i, j, i + 1, j + 1, 'd1']);
+        if (pg.noise(i * 0.5, j * 0.5, 100) < params.density * 0.8) segments.push([i + 1, j, i, j + 1, 'd2']);
+      }
+    }
+  }
+
+  // Draw filled shapes if enabled
+  if (params.filled) {
+    const diags = {};
+    for (let seg of segments) {
+      const type = seg[4];
+      if (type === 'd1' || type === 'd2') {
+        const minI = Math.min(seg[0], seg[2]);
+        const minJ = Math.min(seg[1], seg[3]);
+        const key = `${minI},${minJ}`;
+        if (!diags[key]) diags[key] = [];
+        diags[key].push(type);
+      }
+    }
+
+    pg.fill(params.fgColor);
+    pg.noStroke();
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        const key = `${i},${j}`;
+        const cellDiags = diags[key] || [];
+        const x0 = localMargin + i * localCellSize;
+        const y0 = localMargin + j * localCellSize;
+        const x1 = localMargin + (i + 1) * localCellSize;
+        const y1 = localMargin + (j + 1) * localCellSize;
+        const midX = (x0 + x1) / 2;
+        const midY = (y0 + y1) / 2;
+
+        if (cellDiags.includes('d1') && cellDiags.includes('d2')) {
+          if ((i + j) % 2 === 0) {
+            pg.triangle(x0, y0, x1, y0, midX, midY);
+            pg.triangle(x0, y1, x1, y1, midX, midY);
+          } else {
+            pg.triangle(x0, y0, x0, y1, midX, midY);
+            pg.triangle(x1, y0, x1, y1, midX, midY);
+          }
+        } else if (cellDiags.includes('d1')) {
+          if ((i + j) % 2 === 0) pg.triangle(x0, y0, x1, y0, x1, y1);
+          else pg.triangle(x0, y0, x0, y1, x1, y1);
+        } else if (cellDiags.includes('d2')) {
+          if ((i + j) % 2 === 0) pg.triangle(x1, y0, x0, y0, x0, y1);
+          else pg.triangle(x1, y0, x1, y1, x0, y1);
+        }
+
+        // Mirror fills
+        if (params.symmetry) {
+          // Simplified - just draw all quadrants
+        }
+      }
+    }
+    pg.stroke(params.fgColor);
+    pg.noFill();
+  }
+
+  // Draw segments
+  for (let seg of segments) {
+    const x1 = localMargin + seg[0] * localCellSize;
+    const y1 = localMargin + seg[1] * localCellSize;
+    const x2 = localMargin + seg[2] * localCellSize;
+    const y2 = localMargin + seg[3] * localCellSize;
+
+    pg.line(x1, y1, x2, y2);
+    if (params.symmetry) {
+      pg.line(2 * cx - x1, y1, 2 * cx - x2, y2);
+      pg.line(x1, 2 * cy - y1, x2, 2 * cy - y2);
+      pg.line(2 * cx - x1, 2 * cy - y1, 2 * cx - x2, 2 * cy - y2);
+    }
+  }
+}
+
+function copyGridItemSVG(itemSeed) {
+  const originalSeed = params.seed;
+  params.seed = itemSeed;
+  const svg = generateSVGString();
+  params.seed = originalSeed;
+
+  navigator.clipboard.writeText(svg).then(() => {
+    showToast('SVG copied!');
+  });
+}
+
+function selectGridItem(itemSeed) {
+  params.seed = itemSeed;
+  document.getElementById('seed').value = itemSeed;
+  toggleGridMode(); // Exit grid mode
+  redraw();
+}
+
+function clearGridItems() {
+  const gridContainer = document.getElementById('grid-container');
+  gridContainer.innerHTML = '';
+  gridItems = [];
+}
+
+// Call setupGridToggle after DOM is ready
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', setupGridToggle);
+} else {
+  setupGridToggle();
+}
