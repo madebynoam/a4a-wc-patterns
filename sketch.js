@@ -17,6 +17,7 @@ let params = {
   fountain: 0,          // Frozen fountain (0 = none, 1 = full)
   sideFountains: false, // Add smaller side arches (Gateway of India style)
   sideFountainHeight: 0.5, // Height of side fountains (0-1, relative to main)
+  filled: false, // Fill shapes instead of stroke only
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
 };
@@ -132,6 +133,11 @@ function draw() {
         }
       }
     }
+  }
+
+  // Fill shapes if enabled (draw before lines so lines appear on top)
+  if (params.filled) {
+    drawFilledShapes(segments, halfGrid, iMax, jMax, cx, cy);
   }
 
   // Draw all segments
@@ -262,6 +268,89 @@ function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine, m
   if (drawCenterLine) {
     const centerX = margin + centerI * cellSize;
     line(centerX, bottomY, centerX, topLimit);
+  }
+}
+
+// Fill the triangular shapes formed by the grid
+function drawFilledShapes(segments, halfGrid, iMax, jMax, cx, cy) {
+  fill(params.fgColor);
+  noStroke();
+
+  // Build a map of which diagonals exist in each cell
+  const diags = {};
+  for (let seg of segments) {
+    const type = seg[4];
+    if (type === 'd1' || type === 'd2') {
+      const minI = Math.min(seg[0], seg[2]);
+      const minJ = Math.min(seg[1], seg[3]);
+      const key = `${minI},${minJ}`;
+      if (!diags[key]) diags[key] = [];
+      diags[key].push(type);
+    }
+  }
+
+  // For each cell, fill triangles based on noise
+  for (let i = 0; i < iMax; i++) {
+    for (let j = 0; j < jMax; j++) {
+      const key = `${i},${j}`;
+      const cellDiags = diags[key] || [];
+
+      // Cell corners
+      const x0 = margin + i * cellSize;
+      const y0 = margin + j * cellSize;
+      const x1 = margin + (i + 1) * cellSize;
+      const y1 = margin + (j + 1) * cellSize;
+      const midX = (x0 + x1) / 2;
+      const midY = (y0 + y1) / 2;
+
+      // Use noise to decide which triangles to fill
+      const fillNoise = noise(i * 0.4, j * 0.4, params.seed * 0.05);
+
+      if (cellDiags.includes('d1') && cellDiags.includes('d2')) {
+        // Both diagonals (X) - 4 triangles, fill 2 opposite ones
+        if ((i + j) % 2 === 0) {
+          // Top and bottom triangles
+          drawFilledTriangle(x0, y0, x1, y0, midX, midY, cx, cy);
+          drawFilledTriangle(x0, y1, x1, y1, midX, midY, cx, cy);
+        } else {
+          // Left and right triangles
+          drawFilledTriangle(x0, y0, x0, y1, midX, midY, cx, cy);
+          drawFilledTriangle(x1, y0, x1, y1, midX, midY, cx, cy);
+        }
+      } else if (cellDiags.includes('d1')) {
+        // Only \ diagonal - fill one triangle based on checkerboard
+        if ((i + j) % 2 === 0) {
+          drawFilledTriangle(x0, y0, x1, y0, x1, y1, cx, cy);
+        } else {
+          drawFilledTriangle(x0, y0, x0, y1, x1, y1, cx, cy);
+        }
+      } else if (cellDiags.includes('d2')) {
+        // Only / diagonal - fill one triangle based on checkerboard
+        if ((i + j) % 2 === 0) {
+          drawFilledTriangle(x1, y0, x0, y0, x0, y1, cx, cy);
+        } else {
+          drawFilledTriangle(x1, y0, x1, y1, x0, y1, cx, cy);
+        }
+      }
+    }
+  }
+
+  // Restore stroke for line drawing
+  stroke(params.fgColor);
+  noFill();
+}
+
+function drawFilledTriangle(ax, ay, bx, by, cx_t, cy_t, cx, cy) {
+  // Draw original
+  triangle(ax, ay, bx, by, cx_t, cy_t);
+
+  if (params.symmetry) {
+    // Mirror horizontally
+    triangle(2*cx - ax, ay, 2*cx - bx, by, 2*cx - cx_t, cy_t);
+    // Mirror vertically
+    triangle(ax, 2*cy - ay, bx, 2*cy - by, cx_t, 2*cy - cy_t);
+    // Mirror both
+    triangle(2*cx - ax, 2*cy - ay, 2*cx - bx, 2*cy - by, 2*cx - cx_t, 2*cy - cy_t);
   }
 }
 
@@ -497,6 +586,16 @@ function setupControls() {
     });
   }
 
+  // Filled toggle
+  const filledCheck = document.getElementById('filled');
+  if (filledCheck) {
+    filledCheck.checked = params.filled;
+    filledCheck.addEventListener('change', (e) => {
+      params.filled = e.target.checked;
+      redraw();
+    });
+  }
+
   document.querySelectorAll('.color-swatch').forEach(swatch => {
     swatch.addEventListener('click', (e) => {
       document.querySelectorAll('.color-swatch').forEach(s => s.classList.remove('active'));
@@ -691,6 +790,7 @@ function sharePreset(preset) {
     fountain: preset.fountain,
     sideFountains: preset.sideFountains,
     sideFountainHeight: preset.sideFountainHeight,
+    filled: preset.filled,
     bgColor: preset.bgColor,
     fgColor: preset.fgColor
   };
@@ -750,6 +850,9 @@ function applyPreset(preset) {
 
   const sideFountainsEl = document.getElementById('sideFountains');
   if (sideFountainsEl) sideFountainsEl.checked = params.sideFountains;
+
+  const filledEl = document.getElementById('filled');
+  if (filledEl) filledEl.checked = params.filled;
 
   const sideHeightEl = document.getElementById('sideFountainHeight');
   if (sideHeightEl) sideHeightEl.value = params.sideFountainHeight;
@@ -862,11 +965,12 @@ function generateSVGString() {
 
   let segments = [];
 
+  // We need to build segments first to determine diagonals for fills
   // Horizontal connections (same order as draw())
   for (let j = 0; j <= jMax; j++) {
     for (let i = 0; i < iMax; i++) {
       if (random() < params.density) {
-        segments.push([i, j, i + 1, j]);
+        segments.push([i, j, i + 1, j, 'h']);
       }
     }
   }
@@ -875,7 +979,7 @@ function generateSVGString() {
   for (let i = 0; i <= iMax; i++) {
     for (let j = 0; j < jMax; j++) {
       if (random() < params.density) {
-        segments.push([i, j, i, j + 1]);
+        segments.push([i, j, i, j + 1, 'v']);
       }
     }
   }
@@ -887,9 +991,9 @@ function generateSVGString() {
         if (random() < params.density * 0.9) {
           const dir = noise(i * 0.3, j * 0.3, params.seed * 0.1) > 0.5;
           if (dir) {
-            segments.push([i, j, i + 1, j + 1]);
+            segments.push([i, j, i + 1, j + 1, 'd1']);
           } else {
-            segments.push([i + 1, j, i, j + 1]);
+            segments.push([i + 1, j, i, j + 1, 'd2']);
           }
         }
       }
@@ -900,13 +1004,79 @@ function generateSVGString() {
         const n1 = noise(i * 0.5, j * 0.5, 0);
         const n2 = noise(i * 0.5, j * 0.5, 100);
         if (n1 < params.density * 0.8) {
-          segments.push([i, j, i + 1, j + 1]);
+          segments.push([i, j, i + 1, j + 1, 'd1']);
         }
         if (n2 < params.density * 0.8) {
-          segments.push([i + 1, j, i, j + 1]);
+          segments.push([i + 1, j, i, j + 1, 'd2']);
         }
       }
     }
+  }
+
+  // Draw filled shapes if enabled (before lines)
+  if (params.filled) {
+    svg += `  </g>\n  <g fill="${params.fgColor}" stroke="none">\n`;
+
+    // Build diagonal map
+    const diags = {};
+    for (let seg of segments) {
+      const type = seg[4];
+      if (type === 'd1' || type === 'd2') {
+        const minI = Math.min(seg[0], seg[2]);
+        const minJ = Math.min(seg[1], seg[3]);
+        const key = `${minI},${minJ}`;
+        if (!diags[key]) diags[key] = [];
+        diags[key].push(type);
+      }
+    }
+
+    function svgTriangle(ax, ay, bx, by, tcx, tcy) {
+      return `    <polygon points="${ax.toFixed(2)},${ay.toFixed(2)} ${bx.toFixed(2)},${by.toFixed(2)} ${tcx.toFixed(2)},${tcy.toFixed(2)}"/>\n`;
+    }
+
+    for (let i = 0; i < iMax; i++) {
+      for (let j = 0; j < jMax; j++) {
+        const key = `${i},${j}`;
+        const cellDiags = diags[key] || [];
+
+        const x0 = margin + i * localCellSize;
+        const y0 = margin + j * localCellSize;
+        const x1 = margin + (i + 1) * localCellSize;
+        const y1 = margin + (j + 1) * localCellSize;
+
+        const fillNoise = noise(i * 0.4, j * 0.4, params.seed * 0.05);
+
+        let tri = null;
+        if (cellDiags.includes('d1') && cellDiags.includes('d2')) {
+          if (fillNoise < 0.25) {
+            tri = [x0, y0, x1, y0, (x0+x1)/2, (y0+y1)/2];
+          } else if (fillNoise < 0.5) {
+            tri = [x1, y0, x1, y1, (x0+x1)/2, (y0+y1)/2];
+          } else if (fillNoise < 0.75) {
+            tri = [x1, y1, x0, y1, (x0+x1)/2, (y0+y1)/2];
+          }
+        } else if (cellDiags.includes('d1')) {
+          if (fillNoise < 0.4) {
+            tri = [x0, y0, x1, y0, x1, y1];
+          }
+        } else if (cellDiags.includes('d2')) {
+          if (fillNoise < 0.4) {
+            tri = [x0, y0, x1, y0, x0, y1];
+          }
+        }
+
+        if (tri) {
+          svg += svgTriangle(tri[0], tri[1], tri[2], tri[3], tri[4], tri[5]);
+          if (params.symmetry) {
+            svg += svgTriangle(2*cx - tri[0], tri[1], 2*cx - tri[2], tri[3], 2*cx - tri[4], tri[5]);
+            svg += svgTriangle(tri[0], 2*cy - tri[1], tri[2], 2*cy - tri[3], tri[4], 2*cy - tri[5]);
+            svg += svgTriangle(2*cx - tri[0], 2*cy - tri[1], 2*cx - tri[2], 2*cy - tri[3], 2*cx - tri[4], 2*cy - tri[5]);
+          }
+        }
+      }
+    }
+
+    svg += `  </g>\n  <g stroke="${params.fgColor}" stroke-width="${params.lineWeight}" stroke-linecap="round" stroke-linejoin="round" fill="none">\n`;
   }
 
   // Draw all segments with symmetry mirroring
