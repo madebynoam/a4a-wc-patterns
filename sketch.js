@@ -1416,8 +1416,9 @@ function renderPatternToGraphics(pg, itemSeed, size) {
   const localCellSize = (size - localMargin * 2) / params.gridSize;
   const gridSize = params.gridSize;
 
-  pg.randomSeed(itemSeed);
-  pg.noiseSeed(itemSeed);
+  // Use global seed functions
+  randomSeed(itemSeed);
+  noiseSeed(itemSeed);
 
   pg.background(params.bgColor);
   pg.stroke(params.fgColor);
@@ -1431,14 +1432,14 @@ function renderPatternToGraphics(pg, itemSeed, size) {
   for (let i = 0; i <= gridSize; i++) {
     localFlowField[i] = [];
     for (let j = 0; j <= gridSize; j++) {
-      const noiseVal = pg.noise(i * 0.5, j * 0.5, itemSeed * 0.01);
-      const baseAngle = pg.floor(noiseVal * 8) * (PI / 4);
-      const deviation = (pg.noise(i * 0.3, j * 0.3, 100) - 0.5) * params.flowStrength * PI;
+      const noiseVal = noise(i * 0.5, j * 0.5, itemSeed * 0.01);
+      const baseAngle = floor(noiseVal * 8) * (PI / 4);
+      const deviation = (noise(i * 0.3, j * 0.3, 100) - 0.5) * params.flowStrength * PI;
       localFlowField[i][j] = baseAngle + deviation;
     }
   }
 
-  const halfGrid = params.symmetry ? pg.ceil(gridSize / 2) : gridSize;
+  const halfGrid = params.symmetry ? ceil(gridSize / 2) : gridSize;
   const cx = size / 2;
   const cy = size / 2;
 
@@ -1449,19 +1450,19 @@ function renderPatternToGraphics(pg, itemSeed, size) {
   // Collect segments
   for (let j = 0; j <= jMax; j++) {
     for (let i = 0; i < iMax; i++) {
-      if (pg.random() < params.density) segments.push([i, j, i + 1, j, 'h']);
+      if (random() < params.density) segments.push([i, j, i + 1, j, 'h']);
     }
   }
   for (let i = 0; i <= iMax; i++) {
     for (let j = 0; j < jMax; j++) {
-      if (pg.random() < params.density) segments.push([i, j, i, j + 1, 'v']);
+      if (random() < params.density) segments.push([i, j, i, j + 1, 'v']);
     }
   }
   if (params.connected) {
     for (let i = 0; i < iMax; i++) {
       for (let j = 0; j < jMax; j++) {
-        if (pg.random() < params.density * 0.9) {
-          const dir = pg.noise(i * 0.3, j * 0.3, itemSeed * 0.1) > 0.5;
+        if (random() < params.density * 0.9) {
+          const dir = noise(i * 0.3, j * 0.3, itemSeed * 0.1) > 0.5;
           segments.push(dir ? [i, j, i + 1, j + 1, 'd1'] : [i + 1, j, i, j + 1, 'd2']);
         }
       }
@@ -1469,8 +1470,8 @@ function renderPatternToGraphics(pg, itemSeed, size) {
   } else {
     for (let i = 0; i < iMax; i++) {
       for (let j = 0; j < jMax; j++) {
-        if (pg.noise(i * 0.5, j * 0.5, 0) < params.density * 0.8) segments.push([i, j, i + 1, j + 1, 'd1']);
-        if (pg.noise(i * 0.5, j * 0.5, 100) < params.density * 0.8) segments.push([i + 1, j, i, j + 1, 'd2']);
+        if (noise(i * 0.5, j * 0.5, 0) < params.density * 0.8) segments.push([i, j, i + 1, j + 1, 'd1']);
+        if (noise(i * 0.5, j * 0.5, 100) < params.density * 0.8) segments.push([i + 1, j, i, j + 1, 'd2']);
       }
     }
   }
