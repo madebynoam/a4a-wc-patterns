@@ -17,6 +17,7 @@ let params = {
   fountain: 0,          // Frozen fountain (0 = none, 1 = full)
   sideFountains: false, // Add smaller side arches (Gateway of India style)
   sideFountainHeight: 0.5, // Height of side fountains (0-1, relative to main)
+  fillArches: false, // Fill the quarter-circle arch tips
   filled: false, // Fill shapes instead of stroke only
   bgColor: '#1a1a1a',
   fgColor: '#f5f0e6'
@@ -230,6 +231,7 @@ function drawFrozenFountain(cx, cy, gridSize) {
 function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine, maxHeight) {
   // maxHeight = how many rows from bottom the fountain can reach
   const topLimit = margin + (gridSize - maxHeight) * cellSize;
+  const archCenterX = margin + centerI * cellSize;
 
   for (let layer = 1; layer <= maxLayers; layer++) {
     const leftI = centerI - layer;
@@ -245,6 +247,40 @@ function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine, m
     // Arch top Y position (but not above the height limit)
     const archTopY = max(topLimit, margin + layer * cellSize);
 
+    // Fill arch tips (quarter circles in corners) if enabled
+    if (params.fillArches) {
+      fill(params.fgColor);
+      noStroke();
+
+      // Left arch tip (quarter circle from vertical line to arch)
+      beginShape();
+      vertex(leftX, archTopY);
+      for (let t = 0; t <= 10; t++) {
+        const angle = PI + (t / 20) * PI;
+        const x = archCenterX + cos(angle) * archRadius;
+        const y = archTopY + sin(angle) * archRadius;
+        vertex(x, y);
+      }
+      vertex(archCenterX, archTopY);
+      endShape(CLOSE);
+
+      // Right arch tip (quarter circle from arch to vertical line)
+      beginShape();
+      vertex(archCenterX, archTopY);
+      for (let t = 10; t <= 20; t++) {
+        const angle = PI + (t / 20) * PI;
+        const x = archCenterX + cos(angle) * archRadius;
+        const y = archTopY + sin(angle) * archRadius;
+        vertex(x, y);
+      }
+      vertex(rightX, archTopY);
+      endShape(CLOSE);
+
+      stroke(params.fgColor);
+      noFill();
+    }
+
+    // Draw strokes
     // Left vertical line
     line(leftX, bottomY, leftX, archTopY);
 
@@ -252,7 +288,6 @@ function drawFountainAt(centerI, maxLayers, bottomY, gridSize, drawCenterLine, m
     line(rightX, bottomY, rightX, archTopY);
 
     // Arch connecting the tops
-    const archCenterX = margin + centerI * cellSize;
     noFill();
     beginShape();
     for (let t = 0; t <= 20; t++) {
@@ -586,6 +621,16 @@ function setupControls() {
     });
   }
 
+  // Fill Arches toggle
+  const fillArchesCheck = document.getElementById('fillArches');
+  if (fillArchesCheck) {
+    fillArchesCheck.checked = params.fillArches;
+    fillArchesCheck.addEventListener('change', (e) => {
+      params.fillArches = e.target.checked;
+      redraw();
+    });
+  }
+
   // Filled toggle
   const filledCheck = document.getElementById('filled');
   if (filledCheck) {
@@ -790,6 +835,7 @@ function sharePreset(preset) {
     fountain: preset.fountain,
     sideFountains: preset.sideFountains,
     sideFountainHeight: preset.sideFountainHeight,
+    fillArches: preset.fillArches,
     filled: preset.filled,
     bgColor: preset.bgColor,
     fgColor: preset.fgColor
@@ -850,6 +896,9 @@ function applyPreset(preset) {
 
   const sideFountainsEl = document.getElementById('sideFountains');
   if (sideFountainsEl) sideFountainsEl.checked = params.sideFountains;
+
+  const fillArchesEl = document.getElementById('fillArches');
+  if (fillArchesEl) fillArchesEl.checked = params.fillArches;
 
   const filledEl = document.getElementById('filled');
   if (filledEl) filledEl.checked = params.filled;
@@ -1123,10 +1172,11 @@ function generateSVGString() {
     const maxLayers = floor(1 + params.fountain * 2);
     const bottomY = margin + gridSize * localCellSize;
 
-    // Helper to draw a fountain
+    // Helper to draw a fountain (always strokes, filled mode only affects grid)
     function svgFountain(cI, layers, drawCenter, maxHeight) {
       let result = '';
       const topLimit = margin + (gridSize - maxHeight) * localCellSize;
+      const archCenterX = margin + cI * localCellSize;
 
       for (let layer = 1; layer <= layers; layer++) {
         const leftI = cI - layer;
@@ -1137,7 +1187,31 @@ function generateSVGString() {
         const rightX = margin + rightI * localCellSize;
         const archRadius = layer * localCellSize;
         const archTopY = Math.max(topLimit, margin + layer * localCellSize);
-        const archCenterX = margin + cI * localCellSize;
+
+        // Fill arch tips if enabled
+        if (params.fillArches) {
+          // Left arch tip
+          let leftTip = [`${leftX.toFixed(2)},${archTopY.toFixed(2)}`];
+          for (let t = 0; t <= 10; t++) {
+            const angle = Math.PI + (t / 20) * Math.PI;
+            const x = archCenterX + Math.cos(angle) * archRadius;
+            const y = archTopY + Math.sin(angle) * archRadius;
+            leftTip.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+          }
+          leftTip.push(`${archCenterX.toFixed(2)},${archTopY.toFixed(2)}`);
+          result += `    <polygon points="${leftTip.join(' ')}" fill="${params.fgColor}" stroke="none"/>\n`;
+
+          // Right arch tip
+          let rightTip = [`${archCenterX.toFixed(2)},${archTopY.toFixed(2)}`];
+          for (let t = 10; t <= 20; t++) {
+            const angle = Math.PI + (t / 20) * Math.PI;
+            const x = archCenterX + Math.cos(angle) * archRadius;
+            const y = archTopY + Math.sin(angle) * archRadius;
+            rightTip.push(`${x.toFixed(2)},${y.toFixed(2)}`);
+          }
+          rightTip.push(`${rightX.toFixed(2)},${archTopY.toFixed(2)}`);
+          result += `    <polygon points="${rightTip.join(' ')}" fill="${params.fgColor}" stroke="none"/>\n`;
+        }
 
         // Vertical lines
         result += `    <line x1="${leftX}" y1="${bottomY}" x2="${leftX}" y2="${archTopY}"/>\n`;
